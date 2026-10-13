@@ -1,11 +1,11 @@
-# Swappia 🤝🔄
+# Swappia 
 > *"Lo que tú tienes, alguien más lo necesita."*
 
 Aplicación móvil de trueque e intercambio de servicios y bienes entre vecinos de una misma colonia o comunidad en **Dolores Hidalgo, C.I.N., Guanajuato**.
 
 ---
 
-## 📌 Datos Institucionales y Equipo
+## Datos Institucionales y Equipo
 
 * **Institución:** Universidad Tecnológica del Norte de Guanajuato ([UTNG](https://www.utng.edu.mx/))
 * **Área:** Tecnologías de la Información — Ingeniería en Desarrollo y Gestión de Software
@@ -22,7 +22,7 @@ Aplicación móvil de trueque e intercambio de servicios y bienes entre vecinos 
 
 ---
 
-## 📖 Planteamiento del Problema y Propuesta de Valor
+## Planteamiento del Problema y Propuesta de Valor
 
 ### El Problema
 En colonias y comunidades semi-rurales cercanas a Dolores Hidalgo existen tres fricciones principales:
@@ -39,7 +39,7 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
 
 ---
 
-## 🚀 Alcance del Proyecto & Funcionalidades
+## Alcance del Proyecto & Funcionalidades
 
 ### MVP (Producto Mínimo Viable — Indispensable)
 - [x] **Inicialización y configuración base de arquitectura por capas.**
@@ -59,7 +59,27 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
 
 ---
 
-## 🏛️ Arquitectura de Software
+## SPRINT 1
+
+* **Responsable:** **Loredo Melendez José de Jesús** (`1223100429`)
+* **Objetivo:** Definir las entidades puras de negocio y los contratos de repositorio para los datos del perfil del vecino (nombre, colonia/comunidad, teléfono, calificación acumulada), asegurando que la capa de dominio permanezca 100% independiente de librerías externas y de la infraestructura de persistencia (Supabase).
+
+### Documentación de lo implementado:
+1. **Entidad de Negocio (`UserEntity`)** en `lib/domain/models/user_entity.dart`:
+   - Modela la información del vecino: identificador (`id`), nombre (`nombre`), colonia o comunidad (`coloniaComunidad`), teléfono (`telefono`), reputación (`calificacionAcumulada`), cantidad de evaluaciones (`totalCalificaciones`), fotografía (`fotoUrl`) y fecha de registro (`fechaRegistro`).
+   - Incorpora reglas de negocio puras: validación de nombre, formato de teléfono mexicano (10 dígitos), verificación de perfil completo, determinación de confiabilidad vecinal y formateo de reputación comunitaria.
+   - Cumple con inmutabilidad y métodos de valor (`copyWith`, `operator ==`, `hashCode`).
+2. **Contrato de Repositorio (`UserRepository`)** en `lib/domain/repositories/user_repository.dart`:
+   - Interfaz abstracta que define las operaciones del ciclo de vida del perfil del vecino (`getUserById`, `getCurrentUser`, `createUser`, `updateUser`, `getUsersByColonia` y `updateRating`) sin acoplamiento a servicios externos.
+3. **Mappers y Modelo de Datos (`UserModel`)** en `lib/data/models/user_model.dart`:
+   - Representación de datos para la capa de persistencia compatible con PostgreSQL y Supabase (convención snake_case).
+   - Mappers bidireccionales `toEntity()` y `UserModel.fromEntity(...)` para desacoplar el dominio del esquema de datos.
+4. **Pruebas Unitarias** en `test/user_test.dart`:
+   - Cobertura de validaciones de negocio en `UserEntity`, verificación del contrato `UserRepository` y testeo de mappers/serialización JSON.
+
+---
+
+## Arquitectura de Software
 
 El proyecto implementa una arquitectura **MVVM (Model - View - ViewModel) estructurada por capas**, garantizando separación de responsabilidades, reactividad en tiempo real y facilidad de pruebas.
 
@@ -90,7 +110,7 @@ graph TD
 
 ---
 
-## 🧩 Patrones de Diseño Implementados
+## Patrones de Diseño Implementados
 
 * **Repository:** Desacopla la lógica de negocio de Supabase y PostgreSQL, permitiendo cambiar o complementar la persistencia (ej. caché offline con Hive) sin tocar la interfaz ni el dominio.
 * **Observer / State:** Mantiene la UI sincronizada reactivamente con el ViewModel mediante listeners o streams en tiempo real (Supabase Realtime).
@@ -99,7 +119,7 @@ graph TD
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Stack Tecnológico
 
 | Área | Tecnologías |
 | :--- | :--- |
@@ -116,7 +136,7 @@ graph TD
 
 ---
 
-## 🌿 Flujo de Trabajo y Versionamiento (Git)
+## Flujo de Trabajo y Versionamiento (Git)
 
 Se utiliza una estrategia de ramificación basada en Gitflow simplificado:
 * `main`: Código estable y listo para entrega/producción.
@@ -134,7 +154,7 @@ Los mensajes de commit deben ser descriptivos y seguir el formato:
 
 ---
 
-## 🧪 Estrategia de Pruebas
+## Estrategia de Pruebas
 
 * **Unitarias:** Validación aislada de los casos de uso, lógica de emparejamiento, cálculo de reputación y ViewModels mediante mocks.
 * **Widgets / UI:** Verificación del comportamiento visual de formularios, validaciones de campos y vistas de listas/búsqueda.
@@ -142,34 +162,3 @@ Los mensajes de commit deben ser descriptivos y seguir el formato:
 * **Pruebas de Usuario (Piloto):** Validación con vecinos reales en 2 o 3 colonias piloto de Dolores Hidalgo.
 
 ---
-
-## 💻 Instalación y Configuración Local
-
-### Prerrequisitos
-* [Flutter SDK](https://docs.flutter.dev/get-started/install) (versión compatible con Dart SDK `>=3.12.2`).
-* Dispositivo físico Android (con depuración USB habilitada) o emulador de Android Studio.
-* Proyecto en [Supabase](https://supabase.com/) con credenciales de API (`SUPABASE_URL` y `SUPABASE_ANON_KEY`).
-
-### Pasos para ejecutar
-1. **Clonar el repositorio:**
-   ```bash
-   git clone https://github.com/juanpaa777/swappia.git
-   cd swappia/swappia_app
-   ```
-
-2. **Instalar dependencias:**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Configurar variables de entorno:**
-   Crear un archivo `.env` en la raíz con las credenciales de Supabase:
-   ```env
-   SUPABASE_URL=https://tu-proyecto.supabase.co
-   SUPABASE_ANON_KEY=tu-anon-key-de-supabase
-   ```
-
-4. **Ejecutar en modo de desarrollo:**
-   ```bash
-   flutter run
-   ```
