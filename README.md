@@ -61,10 +61,11 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
 
 ## SPRINT 1
 
+### Issue [#2](https://github.com/utng-sdp/swappia/issues/2) / Dominio: Entidades y Repositorio de Vecino
 * **Responsable:** **Loredo Melendez José de Jesús** (`1223100429`)
 * **Objetivo:** Definir las entidades puras de negocio y los contratos de repositorio para los datos del perfil del vecino (nombre, colonia/comunidad, teléfono, calificación acumulada), asegurando que la capa de dominio permanezca 100% independiente de librerías externas y de la infraestructura de persistencia (Supabase).
 
-### Documentación de lo implementado:
+#### Documentación de lo implementado:
 1. **Entidad de Negocio (`UserEntity`)** en `lib/domain/models/user_entity.dart`:
    - Modela la información del vecino: identificador (`id`), nombre (`nombre`), colonia o comunidad (`coloniaComunidad`), teléfono (`telefono`), reputación (`calificacionAcumulada`), cantidad de evaluaciones (`totalCalificaciones`), fotografía (`fotoUrl`) y fecha de registro (`fechaRegistro`).
    - Incorpora reglas de negocio puras: validación de nombre, formato de teléfono mexicano (10 dígitos), verificación de perfil completo, determinación de confiabilidad vecinal y formateo de reputación comunitaria.
@@ -76,6 +77,29 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
    - Mappers bidireccionales `toEntity()` y `UserModel.fromEntity(...)` para desacoplar el dominio del esquema de datos.
 4. **Pruebas Unitarias** en `test/user_test.dart`:
    - Cobertura de validaciones de negocio en `UserEntity`, verificación del contrato `UserRepository` y testeo de mappers/serialización JSON.
+
+---
+
+### Issue [#6](https://github.com/utng-sdp/swappia/issues/6): `feat(core): Cliente Singleton de Supabase y configuración de .env`
+* **Responsable:** **Pardo Zamarripa Juan Diego** (`1223100425`)
+* **Objetivo:** Implementar el cliente Singleton para gestionar la conexión global con Supabase mediante variables de entorno seguras (`SUPABASE_URL` y `SUPABASE_ANON_KEY`).
+
+#### Documentación de lo implementado:
+1. **Soporte para variables de entorno (`flutter_dotenv`)**:
+   - Integración de `flutter_dotenv` en `pubspec.yaml` y declaración en la sección `assets: - .env`.
+   - Protección de credenciales sensibles agregando `.env` al `.gitignore` para no exponer las llaves del proyecto en el repositorio remoto.
+   - Creación del archivo `.env.example` con variables de referencia (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) para el equipo de desarrollo.
+2. **Cliente Singleton de Supabase (`SupabaseService`)** en `lib/core/services/supabase_service.dart`:
+   - Implementación del patrón **Singleton** (constructor privado `_internal`, constructor `factory` y getter estático `instance`).
+   - Getters utilitarios de acceso directo para el cliente (`client`), servicio de autenticación (`auth`) y usuario autenticado actual (`currentUser`).
+   - Validación robusta de existencia de variables de entorno y sanitización/normalización defensiva de `SUPABASE_URL` (eliminación automática de sufijos `/rest/v1` o barras finales y recorte de espacios en blanco).
+3. **Inicialización asíncrona en el arranque** en `lib/main.dart`:
+   - Ejecución de `WidgetsFlutterBinding.ensureInitialized()`.
+   - Carga segura de variables de entorno con `dotenv.load()` e inicialización de la conexión de Supabase antes de ejecutar `runApp()`.
+4. **Pruebas Unitarias y Verificación** en `test/supabase_service_test.dart`:
+   - Prueba unitaria de unicidad de instancia del patrón Singleton (`identical(instance1, instance2)`).
+   - Prueba de inicialización y verificación de cliente de autenticación con simulación de entorno.
+   - Aprobación al 100% de `flutter test` y `flutter analyze` con cero errores.
 
 ---
 
@@ -162,3 +186,40 @@ Los mensajes de commit deben ser descriptivos y seguir el formato:
 * **Pruebas de Usuario (Piloto):** Validación con vecinos reales en 2 o 3 colonias piloto de Dolores Hidalgo.
 
 ---
+
+## 💻 Instalación y Configuración Local
+
+### Prerrequisitos
+* [Flutter SDK](https://docs.flutter.dev/get-started/install) (versión compatible con Dart SDK `^3.0.0`).
+* Dispositivo físico Android (con depuración USB habilitada) o emulador de Android Studio.
+* Proyecto en [Supabase](https://supabase.com/) con credenciales de API (`SUPABASE_URL` y `SUPABASE_ANON_KEY`).
+
+### Pasos para ejecutar
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/utng-sdp/swappia.git
+   cd swappia
+   ```
+
+2. **Instalar dependencias:**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Configurar variables de entorno:**
+   Copiar la plantilla `.env.example` y crear el archivo `.env` en la raíz con las credenciales de Supabase:
+   ```env
+   SUPABASE_URL=https://tu-proyecto.supabase.co
+   SUPABASE_ANON_KEY=tu-anon-key-de-supabase
+   ```
+
+4. **Ejecutar pruebas unitarias:**
+   ```bash
+   flutter test
+   ```
+
+5. **Ejecutar en modo de desarrollo:**
+   ```bash
+   flutter run
+   ```
+
