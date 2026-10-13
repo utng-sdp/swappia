@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Environment variables
+.env
+
+
 # Android build outputs
 android/build/
 android/app/build/

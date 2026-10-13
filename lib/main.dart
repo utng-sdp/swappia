@@ -1,9 +1,18 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:swappia_app/core/services/supabase_service.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/widgets/custom_button.dart';
 import 'presentation/widgets/custom_text_field.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: '.env');
+    await SupabaseService.initialize();
+  } catch (e) {
+    debugPrint('Supabase/dotenv: $e');
+  }
   runApp(const SwappiaApp());
 }
 

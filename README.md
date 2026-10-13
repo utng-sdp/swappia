@@ -59,67 +59,82 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
 
 ---
 
-## SPRINT 1
+## 🏃 SPRINT 1
 
-### Entrega 1.1: Documentacion Formal y Arquitectura del Proyecto
-* **Responsable:** **Aguayo Santana Carlos Samael** (`1223100396`)
-* **Descripcion de la tarea:** Documentacion formal del planteamiento del problema en colonias de Dolores Hidalgo, propuesta de valor, stack tecnologico, estrategias de Git/Commits y diagramas de arquitectura en Mermaid.
+### Entrega 1.1: Documentación Formal y Arquitectura del Proyecto
+* **Responsable:** **Aguayo Santana Carlos Samael** (1223100396)
+* **Descripción de la tarea:** Documentación formal del planteamiento del problema en colonias de Dolores Hidalgo, propuesta de valor, stack tecnológico, estrategias de Git/Commits y diagramas de arquitectura en Mermaid.
 * **Tareas Realizadas:**
-  - [x] Redaccion de datos institucionales y de integrantes.
-  - [x] Planteamiento del problema y definicion de funcionalidades del MVP.
-  - [x] Inclusion de diagrama de flujo y arquitectura MVVM con sintaxis Mermaid.
-* **Criterios de Aceptacion Verificados:**
+  - [x] Redacción de datos institucionales y de integrantes.
+  - [x] Planteamiento del problema y definición de funcionalidades del MVP.
+  - [x] Inclusión de diagrama de flujo y arquitectura MVVM con sintaxis Mermaid.
+* **Criterios de Aceptación Verificados:**
   - [x] README.md estructurado y renderizando visualmente de forma correcta en GitHub.
 
 ### Entrega 1.2: Dominio y Contratos de Repositorio del Perfil Vecinal
-* **Responsable:** **Loredo Melendez Jose de Jesus** (`1223100429`)
-* **Objetivo:** Definir las entidades puras de negocio y los contratos de repositorio para los datos del perfil del vecino (nombre, colonia/comunidad, telefono, calificacion acumulada), asegurando que la capa de dominio permanezca 100% independiente de librerias externas y de la infraestructura de persistencia (Supabase).
+* **Responsable:** **Loredo Melendez José de Jesús** (1223100429)
+* **Objetivo:** Definir las entidades puras de negocio y los contratos de repositorio para los datos del perfil del vecino (nombre, colonia/comunidad, teléfono, calificación acumulada), asegurando que la capa de dominio permanezca 100% independiente de librerías externas y de la infraestructura de persistencia (Supabase).
 * **Tareas Realizadas:**
-  1. **Entidad de Negocio (`UserEntity`)** en `lib/domain/models/user_entity.dart`:
-     - Modela la informacion del vecino: identificador (`id`), nombre (`nombre`), colonia o comunidad (`coloniaComunidad`), telefono (`telefono`), reputacion (`calificacionAcumulada`), cantidad de evaluaciones (`totalCalificaciones`), fotografia (`fotoUrl`) y fecha de registro (`fechaRegistro`).
-     - Reglas de negocio puras: validacion de nombre, formato de telefono mexicano (10 digitos), verificacion de perfil completo, confiabilidad vecinal y reputacion comunitaria.
-     - Inmutabilidad y metodos de valor (`copyWith`, `operator ==`, `hashCode`).
-  2. **Contrato de Repositorio (`UserRepository`)** en `lib/domain/repositories/user_repository.dart`:
-     - Interfaz abstracta que define las operaciones del ciclo de vida del perfil del vecino (`getUserById`, `getCurrentUser`, `createUser`, `updateUser`, `getUsersByColonia` y `updateRating`).
-  3. **Mappers y Modelo de Datos (`UserModel`)** en `lib/data/models/user_model.dart`:
-     - Modelo para persistencia en PostgreSQL / Supabase (convencion snake_case) y mappers bidireccionales (`toEntity` y `fromEntity`).
-  4. **Pruebas Unitarias** en `test/user_test.dart`:
-     - Cobertura de validaciones de dominio, contrato de repositorio y serializacion JSON.
+  1. **Entidad de Negocio (UserEntity)** en lib/domain/models/user_entity.dart:
+     - Modela la información del vecino: identificador (id), nombre (
+ombre), colonia o comunidad (coloniaComunidad), teléfono (	elefono), reputación (calificacionAcumulada), cantidad de evaluaciones (	otalCalificaciones), fotografía (otoUrl) y fecha de registro (echaRegistro).
+     - Reglas de negocio puras: validación de nombre, formato de teléfono mexicano (10 dígitos), verificación de perfil completo, determinación de confiabilidad vecinal y formateo de reputación comunitaria.
+     - Inmutabilidad y métodos de valor (copyWith, operator ==, hashCode).
+  2. **Contrato de Repositorio (UserRepository)** en lib/domain/repositories/user_repository.dart:
+     - Interfaz abstracta que define las operaciones del ciclo de vida del perfil del vecino (getUserById, getCurrentUser, createUser, updateUser, getUsersByColonia y updateRating) sin acoplamiento a servicios externos.
+  3. **Mappers y Modelo de Datos (UserModel)** en lib/data/models/user_model.dart:
+     - Representación de datos para la capa de persistencia compatible con PostgreSQL y Supabase (convención snake_case).
+     - Mappers bidireccionales 	oEntity() y UserModel.fromEntity(...) para desacoplar el dominio del esquema de datos.
+  4. **Pruebas Unitarias** en 	est/user_test.dart:
+     - Cobertura de validaciones de negocio en UserEntity, verificación del contrato UserRepository y testeo de mappers/serialización JSON.
 
 ---
 
-## SPRINT 2
+## 🏃 SPRINT 2
 
-### feat(ui): Sistema de diseno, tema global y UI Kit responsivo
-* **Responsable:** **Aguayo Santana Carlos Samael** (`1223100396`)
-* **Objetivo:** Disenar el tema visual de Swappia definiendo colores institucionales (arcilla/terracota alfarera de Dolores Hidalgo y verde intercambio comunitario), fuentes, bordes redondeados y componentes atomicos reutilizables (`CustomButton`, `CustomTextField`) en `lib/core/theme/` y `lib/presentation/widgets/`.
+### Entrega 2.1: Cliente Singleton de Supabase y Configuración de .env (Issue [#6](https://github.com/utng-sdp/swappia/issues/6))
+* **Responsable:** **Pardo Zamarripa Juan Diego** (1223100425)
+* **Objetivo:** Implementar el cliente Singleton para gestionar la conexión global con Supabase mediante variables de entorno seguras (SUPABASE_URL y SUPABASE_ANON_KEY).
+* **Tareas Realizadas:**
+  1. **Soporte para variables de entorno (lutter_dotenv)**:
+     - Integración de lutter_dotenv en pubspec.yaml y declaración en la sección ssets: - .env.
+     - Protección de credenciales sensibles agregando .env al .gitignore.
+     - Archivo plantilla .env.example con variables de referencia (SUPABASE_URL, SUPABASE_ANON_KEY).
+  2. **Cliente Singleton de Supabase (SupabaseService)** en lib/core/services/supabase_service.dart:
+     - Implementación del patrón **Singleton** (constructor privado _internal, constructor actory y getter estático instance).
+     - Getters utilitarios para cliente (client), autenticación (uth) y usuario (currentUser).
+     - Normalización y validación defensiva de SUPABASE_URL y SUPABASE_ANON_KEY.
+  3. **Inicialización asíncrona en el arranque** en lib/main.dart:
+     - Carga segura de variables de entorno con dotenv.load() e inicialización de la conexión de Supabase antes de ejecutar 
+unApp().
+  4. **Pruebas Unitarias** en 	est/supabase_service_test.dart:
+     - Pruebas del patrón Singleton y verificación de conexión con cliente simulado.
 
-#### Tareas Realizadas:
-- [x] **Definicion de Tokens de Color (`AppColors`)** en `lib/core/theme/app_colors.dart`:
-  - Paleta institucional basada en identidad local: Primario terracota (`#C84B31`), secundario verde intercambio (`#2E7D32`), terciario ambar (`#D97706`).
-  - Tokens semanticos y adaptativos para superficies, textos, bordes y fondos de inputs tanto en modo claro (`lightBackground`, `lightSurface`) como en modo oscuro (`darkBackground`, `darkSurface`).
-- [x] **Configuracion Centralizada del Tema (`AppTheme`)** en `lib/core/theme/app_theme.dart`:
-  - Implementacion con **Material 3** (`useMaterial3: true`).
-  - Soporte completo para `lightTheme` y `darkTheme`.
-  - Estilizacion integral de `ColorScheme`, `AppBarTheme`, `ElevatedButtonTheme`, `OutlinedButtonTheme`, `TextButtonTheme`, `InputDecorationTheme`, `CardTheme` y `DividerTheme`.
-- [x] **Diseno de Widget Reutilizable `CustomButton`** en `lib/presentation/widgets/custom_button.dart`:
-  - 5 variantes de diseno: `primary`, `secondary`, `outlined`, `tonal` y `text`.
-  - Escala de tamanos: `small` (38px), `medium` (50px), `large` (56px).
-  - Estado de carga integrado (`isLoading: true`) con `CircularProgressIndicator` centrado que previene pulsaciones repetidas sin alterar el layout.
-  - Soporte de icono lider o trailer, ancho responsivo (`isFullWidth`) y accesibilidad mediante `Semantics`.
-- [x] **Diseno de Widget Reutilizable `CustomTextField`** en `lib/presentation/widgets/custom_text_field.dart`:
-  - Entrada de texto con bordes estilizados, etiquetas superiores (`label`), textos de sugerencia (`hint`) y ayuda (`helperText`).
-  - Modo contrasena interactivo (`isPassword: true`) con alternancia de visibilidad mediante icono de ojo.
-  - Soporte multilinea para descripciones de oficios/trueques, prefijos, sufijos y validadores de formulario (`validator`).
-- [x] **Pantalla Demostrativa de UI Kit** en `lib/main.dart`:
-  - Demostrador interactivo con toggle dinamico entre Tema Claro y Tema Oscuro.
-- [x] **Suite de Pruebas de Widgets** en `test/ui_kit_test.dart`:
-  - 9 pruebas automatizadas verificando consistencia en modo claro/oscuro, disparo de callbacks, estados de carga, toggle de contrasena y validacion.
+### Entrega 2.2: Sistema de Diseño, Tema Global y UI Kit Responsivo (eat(ui))
+* **Responsable:** **Aguayo Santana Carlos Samael** (1223100396)
+* **Objetivo:** Diseñar el tema visual de Swappia definiendo colores institucionales (arcilla/terracota de Dolores Hidalgo y verde intercambio comunitario), fuentes, bordes redondeados y componentes atómicos reutilizables (CustomButton, CustomTextField) en lib/core/theme/ y lib/presentation/widgets/.
+* **Tareas Realizadas:**
+  1. **Tokens de Color (AppColors)** en lib/core/theme/app_colors.dart:
+     - Paleta identitaria: Primario terracota (#C84B31), secundario verde trueque (#2E7D32), terciario ámbar (#D97706).
+     - Tokens adaptativos para superficies, textos, bordes y fondos en tema claro y oscuro.
+  2. **Configuración Centralizada del Tema (AppTheme)** en lib/core/theme/app_theme.dart:
+     - Implementación completa de **Material 3** (useMaterial3: true) para lightTheme y darkTheme.
+     - Estilización central de botones, inputs, AppBar, tarjetas y divisores.
+  3. **Componente Reutilizable CustomButton** en lib/presentation/widgets/custom_button.dart:
+     - Variantes primary, secondary, outlined, 	onal y 	ext.
+     - Tamaños small, medium y large.
+     - Estado de carga isLoading con spinner integrado accesible sin alterar dimensiones.
+  4. **Componente Reutilizable CustomTextField** en lib/presentation/widgets/custom_text_field.dart:
+     - Modo contraseña interactivo con toggle de visibilidad (isPassword: true).
+     - Soporte para etiquetas, sugerencias, iconos, textos de error y multilínea.
+  5. **Pantalla Demostrativa y Pruebas**:
+     - Catálogo interactivo de componentes en lib/main.dart.
+     - 9 pruebas automatizadas en 	est/ui_kit_test.dart aprobadas al 100%.
 
-#### Criterios de Aceptacion Verificados:
+#### Criterios de Aceptación Verificados:
 - [x] **Todos los componentes responden al tema oscuro/claro y mantienen consistencia visual.**
-- [x] **Validacion de linter superada con cero errores (`flutter analyze` = No issues found).**
-- [x] **100% de pruebas unitarias y de widgets aprobadas (`flutter test`).**
+- [x] **100% de pruebas unitarias y de widgets aprobadas (lutter test).**
+- [x] **Validación de linter superada con cero errores (lutter analyze = No issues found).**
 
 ---
 
@@ -206,3 +221,40 @@ Los mensajes de commit deben ser descriptivos y seguir el formato:
 * **Pruebas de Usuario (Piloto):** Validación con vecinos reales en 2 o 3 colonias piloto de Dolores Hidalgo.
 
 ---
+
+## 💻 Instalación y Configuración Local
+
+### Prerrequisitos
+* [Flutter SDK](https://docs.flutter.dev/get-started/install) (versión compatible con Dart SDK `^3.0.0`).
+* Dispositivo físico Android (con depuración USB habilitada) o emulador de Android Studio.
+* Proyecto en [Supabase](https://supabase.com/) con credenciales de API (`SUPABASE_URL` y `SUPABASE_ANON_KEY`).
+
+### Pasos para ejecutar
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/utng-sdp/swappia.git
+   cd swappia
+   ```
+
+2. **Instalar dependencias:**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Configurar variables de entorno:**
+   Copiar la plantilla `.env.example` y crear el archivo `.env` en la raíz con las credenciales de Supabase:
+   ```env
+   SUPABASE_URL=https://tu-proyecto.supabase.co
+   SUPABASE_ANON_KEY=tu-anon-key-de-supabase
+   ```
+
+4. **Ejecutar pruebas unitarias:**
+   ```bash
+   flutter test
+   ```
+
+5. **Ejecutar en modo de desarrollo:**
+   ```bash
+   flutter run
+   ```
+
