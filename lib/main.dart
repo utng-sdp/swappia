@@ -6,6 +6,7 @@ import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/local/auth_local_datasource.dart';
 import 'data/datasources/remote/auth_remote_datasource.dart';
+import 'data/datasources/remote/offers_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/offer_repository_impl.dart';
 import 'domain/usecases/get_session_usecase.dart';
@@ -52,7 +53,12 @@ Future<void> main() async {
   // Restaurar sesion activa persistida si existe
   await authViewModel.checkSession();
 
-  final offerRepository = OfferRepositoryImpl();
+  final offersRemoteDataSource = supabaseInitialized
+      ? SupabaseOffersRemoteDataSource()
+      : MockOffersRemoteDataSource();
+  final offerRepository = OfferRepositoryImpl(
+    remoteDataSource: offersRemoteDataSource,
+  );
   final publishOfferUseCase = PublishOfferUseCase(offerRepository);
   final createOfferViewModel = CreateOfferViewModel(
     publishOfferUseCase: publishOfferUseCase,

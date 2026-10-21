@@ -44,7 +44,7 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
 ### MVP (Producto Mínimo Viable — Indispensable)
 - [x] **Inicialización y configuración base de arquitectura por capas.**
 - [x] **Registro e inicio de sesión** (Supabase Auth - perfil vecino).
-- [ ] **Publicar oferta o necesidad** (Servicios u oficios y bienes materiales con fotos y descripción).
+- [x] **Publicar oferta o necesidad** (Servicios u oficios y bienes materiales con fotos y descripción).
 - [ ] **Búsqueda y filtros hiperlocales** por colonia/comunidad y categorías.
 - [ ] **Proponer intercambio:** Selección de tipo de acuerdo (dinero, trueque o mixto).
 - [ ] **Confirmación del intercambio.**
@@ -223,6 +223,35 @@ unApp().
 - [x] **Vistas adaptables y responsivas con manejo visual de estados (loading spinner, banners de error y éxito).**
 - [x] **100% de la suite de pruebas del proyecto aprobada (62 pruebas pasando en `flutter test`).**
 - [x] **Cero errores ni advertencias de análisis estático (`dart analyze = No issues found!`).**
+
+### Entrega 2.7: Tabla PostgreSQL de Ofertas y Bucket de Supabase Storage (Issue [#12](https://github.com/utng-sdp/swappia/issues/12))
+* **Responsable:** **Pardo Zamarripa Juan Diego** (1223100425)
+* **Objetivo:** Configurar la estructura de la base de datos en PostgreSQL para almacenar publicaciones de trueque (servicios u oficios y bienes) y habilitar el bucket de Supabase Storage para almacenamiento multimedia con políticas RLS de lectura pública.
+* **Tareas Realizadas:**
+  1. **Migración DDL de tabla `offers` y bucket en PostgreSQL** en `supabase/migrations/20261021_create_offers_and_storage.sql`:
+     - Creación de tabla `offers` con campos: `id`, `usuario_id` (FK a `auth.users`), `titulo`, `descripcion`, `categoria`, `colonia_comunidad`, `foto_url`, `modalidad` (`trueque`, `dinero`, `mixto`), `lo_que_busca`, `precio_estimado`, `fecha_publicacion` y `activa`.
+     - Índices de rendimiento hiperlocal en `colonia_comunidad`, `usuario_id`, `categoria` y `activa, fecha_publicacion`.
+     - Habilitación de **Row Level Security (RLS)** con políticas para lectura pública de ofertas activas e inserción/actualización restringida a propietarios autenticados.
+     - Creación del bucket `offer_images` en `storage.buckets` con políticas RLS de acceso público (`SELECT`) y subida para usuarios autenticados (`INSERT`).
+  2. **Data Source Remoto (`OffersRemoteDataSource`)** en `lib/data/datasources/remote/offers_remote_datasource.dart`:
+     - Implementación de `uploadOfferImage` con subida binaria al bucket `offer_images` y generación de URL pública persistible.
+     - Implementación de `createOffer`, `getOffers`, `getOffersByColonia`, `getOfferById` y `deleteOffer`.
+     - Implementación en memoria `MockOffersRemoteDataSource` para pruebas unitarias y modo offline.
+  3. **Integración con la Capa de Datos y Main**:
+     - Conexión e inyección en `OfferRepositoryImpl` para persistencia remota con fallback local.
+     - Inyección reactiva en `lib/main.dart` según el estado de inicialización de Supabase.
+  4. **Suite de Pruebas Automatizadas** en `test/offers_remote_datasource_test.dart`:
+     - Verificación del contrato `OffersRemoteDataSource`.
+     - Comprobación del criterio de aceptación: subida de imagen y guardado de URL pública en la fila de la oferta.
+     - Mapeo y serialización con `OfferModel` y `OfferEntity`.
+     - 66 pruebas automatizadas aprobadas al 100%.
+
+#### Criterios de Aceptación Verificados (Issue #12):
+- [x] **Las imágenes se suben al Storage y la URL generada se guarda correctamente en la fila de la oferta.**
+- [x] **Estructura relacional de `offers` e índices para búsqueda hiperlocal creados.**
+- [x] **Bucket `offer_images` configurado con acceso público de lectura y protección para escritura.**
+- [x] **100% de pruebas aprobadas en el proyecto (`flutter test = 66 passed`).**
+- [x] **Análisis estático sin errores (`flutter analyze = No issues found`).**
 
 ---
 
