@@ -1,4 +1,5 @@
-﻿import '../../models/user_model.dart';
+import '../../models/user_model.dart';
+export 'supabase_auth_remote_datasource.dart';
 
 abstract class AuthRemoteDataSource {
   Future<Map<String, dynamic>> login({
@@ -14,7 +15,22 @@ abstract class AuthRemoteDataSource {
     required String password,
   });
 
+  Future<Map<String, dynamic>> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
+  Future<Map<String, dynamic>> signUpWithEmail({
+    required String email,
+    required String password,
+    required String nombre,
+    required String coloniaComunidad,
+    required String telefono,
+  });
+
   Future<UserModel?> fetchCurrentUser(String token);
+
+  Future<void> signOut();
 }
 
 class MockAuthRemoteDataSource implements AuthRemoteDataSource {
@@ -50,7 +66,7 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
     required String emailOrPhone,
     required String password,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 100));
 
     final cleanId = emailOrPhone.trim();
     final user = _registeredUsers.firstWhere(
@@ -77,7 +93,7 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
     required String email,
     required String password,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 100));
 
     final exists = _registeredUsers.any(
       (u) => u['email'] == email.trim() || u['telefono'] == telefono.trim(),
@@ -112,13 +128,39 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>> signInWithEmail({
+    required String email,
+    required String password,
+  }) => login(emailOrPhone: email, password: password);
+
+  @override
+  Future<Map<String, dynamic>> signUpWithEmail({
+    required String email,
+    required String password,
+    required String nombre,
+    required String coloniaComunidad,
+    required String telefono,
+  }) => register(
+    nombre: nombre,
+    coloniaComunidad: coloniaComunidad,
+    telefono: telefono,
+    email: email,
+    password: password,
+  );
+
+  @override
   Future<UserModel?> fetchCurrentUser(String token) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 50));
     for (final u in _registeredUsers) {
       if (token.contains(u['id'] as String)) {
         return UserModel.fromJson(u);
       }
     }
     return null;
+  }
+
+  @override
+  Future<void> signOut() async {
+    await Future.delayed(const Duration(milliseconds: 50));
   }
 }

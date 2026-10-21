@@ -43,7 +43,7 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
 
 ### MVP (Producto Mínimo Viable — Indispensable)
 - [x] **Inicialización y configuración base de arquitectura por capas.**
-- [ ] **Registro e inicio de sesión** (Supabase Auth - perfil vecino).
+- [x] **Registro e inicio de sesión** (Supabase Auth - perfil vecino).
 - [ ] **Publicar oferta o necesidad** (Servicios u oficios y bienes materiales con fotos y descripción).
 - [ ] **Búsqueda y filtros hiperlocales** por colonia/comunidad y categorías.
 - [ ] **Proponer intercambio:** Selección de tipo de acuerdo (dinero, trueque o mixto).
@@ -133,39 +133,73 @@ unApp().
 
 #### Criterios de Aceptación Verificados:
 - [x] **Todos los componentes responden al tema oscuro/claro y mantienen consistencia visual.**
-- [x] **100% de pruebas unitarias y de widgets aprobadas (lutter test).**
-- [x] **Validación de linter superada con cero errores (lutter analyze = No issues found).**
+- [x] **100% de pruebas unitarias y de widgets aprobadas (flutter test).**
+- [x] **Validación de linter superada con cero errores (flutter analyze = No issues found).**
 
----
+### Entrega 2.3: Gestión de Estado, Reactividad y Flujo de Autenticación (`feat(auth)`)
+* **Responsable:** **Loredo Melendez José de Jesús** (1223100429)
+* **Objetivo:** Desarrollar el flujo interactivo de autenticación conectando ViewModel con la interfaz visual, gestionando estados asíncronos y persistiendo la sesión de forma reactiva hacia el Feed principal.
+* **Tareas Realizadas:**
+  1. **Casos de Uso de Autenticación** en `lib/domain/usecases/`:
+     - Implementación de `LoginUseCase`, `RegisterUseCase` y `GetSessionUseCase`.
+  2. **ViewModel y Manejo de Estado (`AuthViewModel`)** en `lib/presentation/viewmodels/auth_viewmodel.dart`:
+     - Estados `initial`, `loading`, `authenticated`, `unauthenticated` y `error`.
+     - Métodos reactivos para `login`, `register`, `logout` y `checkSession`.
+  3. **Vistas de Autenticación y Navegación**:
+     - `LoginView` y `RegisterView` con validaciones de formulario completas.
+     - Redirección automática y fluida al `FeedView` al autenticarse.
 
-### Entrega 2.3: Pantallas de Inicio de Sesión y Registro de Vecino (Issue [#10](https://github.com/utng-sdp/swappia/issues/10))
+### Entrega 2.4: Pantallas de Inicio de Sesión y Registro de Vecino (Issue [#10](https://github.com/utng-sdp/swappia/issues/10))
 * **Responsable:** **Aguayo Santana Carlos Samael** (1223100396)
 * **Objetivo:** Construir las vistas de usuario para el inicio de sesión (LoginView) y registro (RegisterView), incluyendo selección de colonia/comunidad dentro de Dolores Hidalgo, validadores de formulario y manejo visual de estados (loading spinner, banners de error).
+* **Tareas Realizadas:**
+  - [x] **Constantes de Dolores Hidalgo (DoloresHidalgoConstants)** en `lib/core/constants/dolores_hidalgo_constants.dart`:
+    - Catálogo centralizado de colonias urbanas y comunidades rurales de Dolores Hidalgo, C.I.N.
+  - [x] **Banner de Estado Reutilizable (StatusBanner)** en `lib/presentation/widgets/status_banner.dart`:
+    - Componente adaptable para alertas de error, éxito, advertencia e información con cierre interactivo y adaptación a modo oscuro/claro.
+  - [x] **Pantalla de Inicio de Sesión (LoginView)** en `lib/presentation/views/auth/login_view.dart`:
+    - Formulario con validación de correo electrónico y contraseña.
+    - Manejo de estados: indicador de carga en CustomButton, banner de error y enlace a recuperación.
+    - Enlace responsivo hacia la pantalla de registro de vecino.
+  - [x] **Pantalla de Registro de Vecino (RegisterView)** en `lib/presentation/views/auth/register_view.dart`:
+    - Formulario con nombre completo, teléfono mexicano (10 dígitos sincronizado con reglas de UserEntity), correo electrónico y campo opcional de oficio/bien.
+    - Dropdown interactivo para selección obligatoria de colonia o comunidad de Dolores Hidalgo.
+    - Validación de contraseña con confirmación coincidente.
+    - Manejo de estados de carga y errores mediante StatusBanner.
+  - [x] **Integración y Flujo de Navegación** en `lib/main.dart`:
+    - AuthNavigationWrapper con animación suave (AnimatedSwitcher) y alternancia de tema claro/oscuro.
+  - [x] **Suite de Pruebas de Vistas de Autenticación** en `test/auth_views_test.dart`:
+    - 8 pruebas de widgets verificando renderizado, validación de formularios, dropdown y callbacks de navegación.
 
-#### Tareas Realizadas:
-- [x] **Constantes de Dolores Hidalgo (DoloresHidalgoConstants)** en lib/core/constants/dolores_hidalgo_constants.dart:
-  - Catálogo centralizado de colonias urbanas y comunidades rurales de Dolores Hidalgo, C.I.N.
-- [x] **Banner de Estado Reutilizable (StatusBanner)** en lib/presentation/widgets/status_banner.dart:
-  - Componente adaptable para alertas de error, éxito, advertencia e información con cierre interactivo y adaptación a modo oscuro/claro.
-- [x] **Pantalla de Inicio de Sesión (LoginView)** en lib/presentation/views/auth/login_view.dart:
-  - Formulario con validación de correo electrónico y contraseña.
-  - Manejo de estados: indicador de carga en CustomButton, banner de error y enlace a recuperación.
-  - Enlace responsivo hacia la pantalla de registro de vecino.
-- [x] **Pantalla de Registro de Vecino (RegisterView)** en lib/presentation/views/auth/register_view.dart:
-  - Formulario con nombre completo, teléfono mexicano (10 dígitos sincronizado con reglas de UserEntity), correo electrónico y campo opcional de oficio/bien.
-  - Dropdown interactivo para selección obligatoria de colonia o comunidad de Dolores Hidalgo.
-  - Validación de contraseña con confirmación coincidente.
-  - Manejo de estados de carga y errores mediante StatusBanner.
-- [x] **Integración y Flujo de Navegación** en lib/main.dart:
-  - AuthNavigationWrapper con animación suave (AnimatedSwitcher) y alternancia de tema claro/oscuro.
-- [x] **Suite de Pruebas de Vistas de Autenticación** en 	est/auth_views_test.dart:
-  - 8 pruebas de widgets verificando renderizado, validación de formularios, dropdown y callbacks de navegación.
+### Entrega 2.5: Data Source Remoto con Supabase Auth y Persistencia en PostgreSQL (Issue [#9](https://github.com/utng-sdp/swappia/issues/9))
+* **Responsable:** **Pardo Zamarripa Juan Diego** (1223100425)
+* **Objetivo:** Desarrollar la fuente de datos remota y la implementación del repositorio de autenticación para interactuar con la API de Supabase Auth, persistiendo los datos complementarios del vecino en PostgreSQL.
+* **Tareas Realizadas:**
+  1. **Migración DDL para la tabla `profiles` en PostgreSQL** en `supabase/migrations/20261020_create_profiles.sql`:
+     - Definición de la tabla `profiles` vinculada a `auth.users(id)` con clave foránea en cascada (`ON DELETE CASCADE`).
+     - Campos para `nombre`, `colonia_comunidad`, `telefono`, reputación (`calificacion_acumulada`, `total_calificaciones`), `foto_url` y `fecha_registro`.
+     - Habilitación de **Row Level Security (RLS)** con políticas específicas para lectura comunitaria autenticada, inserción de perfil propio y actualización restringida al propietario.
+     - Disparador (`trigger`) y función `handle_new_user()` para auto-población de perfiles a partir de metadatos de registro.
+  2. **Data Source Remoto (`SupabaseAuthRemoteDataSource`)** en `lib/data/datasources/remote/supabase_auth_remote_datasource.dart`:
+     - Implementación del contrato `AuthRemoteDataSource`.
+     - Implementación de métodos específicos `signUpWithEmail` y `signInWithEmail`.
+     - Persistencia y sincronización automática de datos del perfil vecinal mediante `.from('profiles').upsert(...)`.
+     - Mapeo y traducción amigable de excepciones de Supabase Auth (`AuthException`) al español.
+     - Métodos auxiliares `fetchCurrentUser` y `signOut`.
+  3. **Ampliación del Contrato `AuthRemoteDataSource`** en `lib/data/datasources/remote/auth_remote_datasource.dart`:
+     - Exposición de métodos `signInWithEmail`, `signUpWithEmail` y `signOut` en la interfaz base y en `MockAuthRemoteDataSource`.
+  4. **Conexión en el arranque de la aplicación** en `lib/main.dart`:
+     - Detección reactiva de inicialización de Supabase con inyección dinámica de `SupabaseAuthRemoteDataSource` o fallback seguro para pruebas locales.
+  5. **Pruebas Unitarias Automatizadas** en `test/supabase_auth_remote_datasource_test.dart`:
+     - Verificación de cumplimiento del contrato `AuthRemoteDataSource`.
+     - Pruebas de deserialización e integridad con `UserModel` y `UserEntity`.
+     - Validación del 100% de la suite de pruebas del proyecto (40 tests aprobados).
 
-#### Criterios de Aceptación Verificados:
-- [x] **Vistas 100% adaptables a diferentes tamaños de pantalla con validaciones de campos requeridos.**
-- [x] **Manejo visual completo de estados (loading spinner en botón y banners de error).**
-- [x] **100% de pruebas aprobadas en el proyecto (26 pruebas pasando en lutter test).**
-- [x] **Análisis estático limpio con cero errores (lutter analyze / dart analyze).**
+#### Criterios de Aceptación Verificados (Issue #9):
+- [x] **Un usuario puede registrarse e iniciar sesión de forma remota persistiendo en PostgreSQL.**
+- [x] **Tabla `profiles` definida con restricciones de integridad, RLS y triggers de sincronización.**
+- [x] **Cero errores de análisis estático (`flutter analyze = No issues found`).**
+- [x] **Total de pruebas unitarias y de widgets aprobadas al 100% (`flutter test`).**
 
 ---
 
