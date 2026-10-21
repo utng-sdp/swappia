@@ -4,7 +4,6 @@ import 'package:swappia_app/core/theme/app_theme.dart';
 import 'package:swappia_app/presentation/views/auth/login_view.dart';
 import 'package:swappia_app/presentation/views/auth/register_view.dart';
 import 'package:swappia_app/presentation/widgets/custom_button.dart';
-import 'package:swappia_app/presentation/widgets/custom_text_field.dart';
 import 'package:swappia_app/presentation/widgets/status_banner.dart';
 
 void main() {

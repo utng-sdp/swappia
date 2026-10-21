@@ -7,12 +7,16 @@ import 'core/theme/app_theme.dart';
 import 'data/datasources/local/auth_local_datasource.dart';
 import 'data/datasources/remote/auth_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
+import 'data/repositories/offer_repository_impl.dart';
 import 'domain/usecases/get_session_usecase.dart';
 import 'domain/usecases/login_usecase.dart';
+import 'domain/usecases/publish_offer_usecase.dart';
 import 'domain/usecases/register_usecase.dart';
 import 'presentation/viewmodels/auth_viewmodel.dart';
+import 'presentation/viewmodels/create_offer_viewmodel.dart';
 import 'presentation/views/auth/login_view.dart';
 import 'presentation/views/auth/register_view.dart';
+import 'presentation/views/exchange/create_offer_view.dart';
 import 'presentation/views/feed/feed_view.dart';
 
 Future<void> main() async {
@@ -45,13 +49,27 @@ Future<void> main() async {
   // Restaurar sesion activa persistida si existe
   await authViewModel.checkSession();
 
-  runApp(SwappiaApp(authViewModel: authViewModel));
+  final offerRepository = OfferRepositoryImpl();
+  final publishOfferUseCase = PublishOfferUseCase(offerRepository);
+  final createOfferViewModel = CreateOfferViewModel(
+    publishOfferUseCase: publishOfferUseCase,
+  );
+
+  runApp(SwappiaApp(
+    authViewModel: authViewModel,
+    createOfferViewModel: createOfferViewModel,
+  ));
 }
 
 class SwappiaApp extends StatefulWidget {
   final AuthViewModel? authViewModel;
+  final CreateOfferViewModel? createOfferViewModel;
 
-  const SwappiaApp({super.key, this.authViewModel});
+  const SwappiaApp({
+    super.key,
+    this.authViewModel,
+    this.createOfferViewModel,
+  });
 
   @override
   State<SwappiaApp> createState() => _SwappiaAppState();
@@ -79,10 +97,13 @@ class _SwappiaAppState extends State<SwappiaApp> {
         LoginView.routeName: (context) => const LoginView(),
         RegisterView.routeName: (context) => const RegisterView(),
         FeedView.routeName: (context) => const FeedView(),
+        CreateOfferView.routeName: (context) => const CreateOfferView(),
       },
       home: Consumer<AuthViewModel>(
         builder: (context, auth, _) {
-          if (auth.isLoading && auth.status == AuthStatus.loading && auth.currentUser == null) {
+          if (auth.isLoading &&
+              auth.status == AuthStatus.loading &&
+              auth.currentUser == null) {
             return const Scaffold(
               body: Center(
                 child: CircularProgressIndicator(),
@@ -97,24 +118,39 @@ class _SwappiaAppState extends State<SwappiaApp> {
       ),
     );
 
-    if (widget.authViewModel != null) {
-      return ChangeNotifierProvider<AuthViewModel>.value(
-        value: widget.authViewModel!,
-        child: appWidget,
-      );
-    }
-
-    return ChangeNotifierProvider<AuthViewModel>(
-      create: (_) {
-        final local = SharedPreferencesAuthLocalDataSource();
-        final remote = MockAuthRemoteDataSource();
-        final repo = AuthRepositoryImpl(remoteDataSource: remote, localDataSource: local);
-        return AuthViewModel(
-          loginUseCase: LoginUseCase(repo),
-          registerUseCase: RegisterUseCase(repo),
-          getSessionUseCase: GetSessionUseCase(repo),
+    final effectiveAuthVM = widget.authViewModel ??
+        AuthViewModel(
+          loginUseCase: LoginUseCase(
+            AuthRepositoryImpl(
+              remoteDataSource: MockAuthRemoteDataSource(),
+              localDataSource: SharedPreferencesAuthLocalDataSource(),
+            ),
+          ),
+          registerUseCase: RegisterUseCase(
+            AuthRepositoryImpl(
+              remoteDataSource: MockAuthRemoteDataSource(),
+              localDataSource: SharedPreferencesAuthLocalDataSource(),
+            ),
+          ),
+          getSessionUseCase: GetSessionUseCase(
+            AuthRepositoryImpl(
+              remoteDataSource: MockAuthRemoteDataSource(),
+              localDataSource: SharedPreferencesAuthLocalDataSource(),
+            ),
+          ),
         );
-      },
+
+    final effectiveOfferVM = widget.createOfferViewModel ??
+        CreateOfferViewModel(
+          publishOfferUseCase: PublishOfferUseCase(OfferRepositoryImpl()),
+        );
+
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthViewModel>.value(value: effectiveAuthVM),
+        ChangeNotifierProvider<CreateOfferViewModel>.value(
+            value: effectiveOfferVM),
+      ],
       child: appWidget,
     );
   }

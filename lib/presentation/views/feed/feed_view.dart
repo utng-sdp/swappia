@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 
@@ -193,6 +193,16 @@ class FeedView extends StatelessWidget {
                 ],
               ),
             ),
+      floatingActionButton: FloatingActionButton.extended(
+        key: const Key('feed_publish_offer_fab'),
+        icon: const Icon(Icons.add_circle_outline),
+        label: const Text('Publicar Oferta'),
+        backgroundColor: Colors.teal.shade700,
+        foregroundColor: Colors.white,
+        onPressed: () {
+          Navigator.of(context).pushNamed('/create-offer');
+        },
+      ),
     );
   }
 
