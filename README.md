@@ -201,6 +201,29 @@ unApp().
 - [x] **Cero errores de análisis estático (`flutter analyze = No issues found`).**
 - [x] **Total de pruebas unitarias y de widgets aprobadas al 100% (`flutter test`).**
 
+### Entrega 2.6: Formulario interactivo "Publicar Oferta o Necesidad" (Issue [#13](https://github.com/utng-sdp/swappia/issues/13))
+* **Responsable:** **Aguayo Santana Carlos Samael** (1223100396)
+* **Objetivo:** Diseñar la pantalla `CreateOfferView` que permite al vecino seleccionar si ofrece o busca un servicio/bien, adjuntar fotos de la cámara/galería con previsualización en tiempo real y clasificarlo en categorías de Dolores Hidalgo.
+
+#### Tareas Realizadas:
+- [x] **Selector Toggle Interactivo (Ofrezco / Busco)** en `lib/presentation/views/exchange/create_offer_view.dart`:
+  - Alternancia dinámica entre modalidad de ofrecer servicio/bien (`AppColors.secondary` verde trueque) y buscar necesidad (`AppColors.primary` terracota), sincronizando los textos de acción y botones.
+- [x] **Selector de Categorías Especializadas**:
+  - Dropdown interactivo con iconos temáticos para las categorías clave de Dolores Hidalgo: `Electricidad`, `Costura`, `Mandados`, `Artesanía` y `Bienes` (junto con el catálogo comunitario), con validación obligatoria.
+- [x] **Integración de Plugin `image_picker` y Previsualización Multimedia**:
+  - Captura y selección de fotografía desde cámara (`ImageSource.camera`) o galería (`ImageSource.gallery`).
+  - Tarjeta de previsualización con thumbnail adaptativo (`Image.file` / `kIsWeb`) y acción para eliminar o reemplazar la foto antes de publicar.
+- [x] **Conexión con la Capa de Presentación y Dominio**:
+  - Integración reactiva con `CreateOfferViewModel` para el envío asíncrono, persistencia de foto y limpieza automática del formulario tras confirmación.
+- [x] **Suite de Pruebas de Widgets Aprobada al 100%** en `test/create_offer_view_test.dart`:
+  - 5 pruebas exhaustivas verificando renderizado, toggle reactivo, previsualización/eliminación de foto con `image_picker`, validaciones y publicación exitosa.
+
+#### Criterios de Aceptación Verificados (Issue #13):
+- [x] **Formulario permite previsualizar la foto tomada y seleccionar la categoría antes de enviar.**
+- [x] **Vistas adaptables y responsivas con manejo visual de estados (loading spinner, banners de error y éxito).**
+- [x] **100% de la suite de pruebas del proyecto aprobada (62 pruebas pasando en `flutter test`).**
+- [x] **Cero errores ni advertencias de análisis estático (`dart analyze = No issues found!`).**
+
 ---
 
 ## Arquitectura de Software
