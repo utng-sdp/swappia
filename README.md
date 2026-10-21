@@ -138,6 +138,37 @@ unApp().
 
 ---
 
+### Entrega 2.3: Pantallas de Inicio de Sesión y Registro de Vecino (Issue [#10](https://github.com/utng-sdp/swappia/issues/10))
+* **Responsable:** **Aguayo Santana Carlos Samael** (1223100396)
+* **Objetivo:** Construir las vistas de usuario para el inicio de sesión (LoginView) y registro (RegisterView), incluyendo selección de colonia/comunidad dentro de Dolores Hidalgo, validadores de formulario y manejo visual de estados (loading spinner, banners de error).
+
+#### Tareas Realizadas:
+- [x] **Constantes de Dolores Hidalgo (DoloresHidalgoConstants)** en lib/core/constants/dolores_hidalgo_constants.dart:
+  - Catálogo centralizado de colonias urbanas y comunidades rurales de Dolores Hidalgo, C.I.N.
+- [x] **Banner de Estado Reutilizable (StatusBanner)** en lib/presentation/widgets/status_banner.dart:
+  - Componente adaptable para alertas de error, éxito, advertencia e información con cierre interactivo y adaptación a modo oscuro/claro.
+- [x] **Pantalla de Inicio de Sesión (LoginView)** en lib/presentation/views/auth/login_view.dart:
+  - Formulario con validación de correo electrónico y contraseña.
+  - Manejo de estados: indicador de carga en CustomButton, banner de error y enlace a recuperación.
+  - Enlace responsivo hacia la pantalla de registro de vecino.
+- [x] **Pantalla de Registro de Vecino (RegisterView)** en lib/presentation/views/auth/register_view.dart:
+  - Formulario con nombre completo, teléfono mexicano (10 dígitos sincronizado con reglas de UserEntity), correo electrónico y campo opcional de oficio/bien.
+  - Dropdown interactivo para selección obligatoria de colonia o comunidad de Dolores Hidalgo.
+  - Validación de contraseña con confirmación coincidente.
+  - Manejo de estados de carga y errores mediante StatusBanner.
+- [x] **Integración y Flujo de Navegación** en lib/main.dart:
+  - AuthNavigationWrapper con animación suave (AnimatedSwitcher) y alternancia de tema claro/oscuro.
+- [x] **Suite de Pruebas de Vistas de Autenticación** en 	est/auth_views_test.dart:
+  - 8 pruebas de widgets verificando renderizado, validación de formularios, dropdown y callbacks de navegación.
+
+#### Criterios de Aceptación Verificados:
+- [x] **Vistas 100% adaptables a diferentes tamaños de pantalla con validaciones de campos requeridos.**
+- [x] **Manejo visual completo de estados (loading spinner en botón y banners de error).**
+- [x] **100% de pruebas aprobadas en el proyecto (26 pruebas pasando en lutter test).**
+- [x] **Análisis estático limpio con cero errores (lutter analyze / dart analyze).**
+
+---
+
 ## Arquitectura de Software
 
 El proyecto implementa una arquitectura **MVVM (Model - View - ViewModel) estructurada por capas**, garantizando separación de responsabilidades, reactividad en tiempo real y facilidad de pruebas.
