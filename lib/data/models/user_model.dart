@@ -52,7 +52,7 @@ class UserModel {
       id: (json['id'] ?? '').toString(),
       nombre: (json['nombre'] ?? '').toString(),
       coloniaComunidad:
-          (json['colonia_comunidad'] ?? json['coloniaComunidad'] ?? '')
+          (json['colonia_comunidad'] ?? json['colonia'] ?? json['coloniaComunidad'] ?? '')
               .toString(),
       telefono: (json['telefono'] ?? '').toString(),
       calificacionAcumulada:
@@ -63,7 +63,9 @@ class UserModel {
           (json['total_calificaciones'] as num?)?.toInt() ??
               (json['totalCalificaciones'] as num?)?.toInt() ??
               0,
-      fotoUrl: json['foto_url'] as String? ?? json['fotoUrl'] as String?,
+      fotoUrl: json['foto_url'] as String? ??
+          json['avatar_url'] as String? ??
+          json['fotoUrl'] as String?,
       fechaRegistro: json['fecha_registro'] != null
           ? DateTime.tryParse(json['fecha_registro'].toString())
           : (json['fechaRegistro'] != null

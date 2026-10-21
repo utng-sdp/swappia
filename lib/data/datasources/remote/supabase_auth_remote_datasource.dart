@@ -73,6 +73,7 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
         data: {
           'nombre': cleanNombre,
           'colonia_comunidad': cleanColonia,
+          'colonia': cleanColonia,
           'telefono': cleanTelefono,
         },
       );
@@ -93,11 +94,21 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
         'fecha_registro': DateTime.now().toIso8601String(),
       };
 
-      // Persistir o actualizar los datos adicionales del vecino en la tabla profiles
+      // Persistir o actualizar los datos del vecino en profiles o perfiles
       try {
         await _client.from('profiles').upsert(profileMap);
       } catch (_) {
-        // Si el trigger de PostgreSQL handle_new_user ya insertó la fila, continuamos
+        try {
+          await _client.from('perfiles').upsert({
+            'id': user.id,
+            'nombre': cleanNombre,
+            'colonia': cleanColonia,
+            'telefono': cleanTelefono,
+            'avatar_url': null,
+          });
+        } catch (_) {
+          // Si el trigger de PostgreSQL handle_new_user ya insertó la fila, continuamos
+        }
       }
 
       final token = response.session?.accessToken ??
@@ -175,6 +186,27 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
 
       if (data != null && data.isNotEmpty) {
         return Map<String, dynamic>.from(data);
+      }
+    } catch (_) {
+      // Intentar en 'perfiles' si la tabla profiles no existe
+    }
+
+    try {
+      final data = await _client
+          .from('perfiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (data != null && data.isNotEmpty) {
+        final map = Map<String, dynamic>.from(data);
+        if (map.containsKey('colonia') && !map.containsKey('colonia_comunidad')) {
+          map['colonia_comunidad'] = map['colonia'];
+        }
+        if (map.containsKey('avatar_url') && !map.containsKey('foto_url')) {
+          map['foto_url'] = map['avatar_url'];
+        }
+        return map;
       }
     } catch (_) {
       // Si la consulta falla por temas de red o RLS, usar fallback

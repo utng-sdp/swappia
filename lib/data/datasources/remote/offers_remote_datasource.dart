@@ -102,13 +102,24 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
         payload.remove('id');
       }
 
-      final response = await _client
-          .from('offers')
-          .insert(payload)
-          .select()
-          .single();
+      try {
+        final response = await _client
+            .from('offers')
+            .insert(payload)
+            .select()
+            .single();
 
-      return OfferModel.fromJson(response);
+        return OfferModel.fromJson(response);
+      } catch (_) {
+        // Fallback a 'publicaciones'
+        final response = await _client
+            .from('publicaciones')
+            .insert(payload)
+            .select()
+            .single();
+
+        return OfferModel.fromJson(response);
+      }
     } on PostgrestException catch (e) {
       throw Exception('Error en base de datos al guardar la oferta: ${e.message}');
     } catch (e) {
@@ -130,8 +141,21 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
       return list
           .map((item) => OfferModel.fromJson(item as Map<String, dynamic>))
           .toList();
-    } catch (e) {
-      return [];
+    } catch (_) {
+      try {
+        final response = await _client
+            .from('publicaciones')
+            .select()
+            .eq('activa', true)
+            .order('fecha_publicacion', ascending: false);
+
+        final list = response as List;
+        return list
+            .map((item) => OfferModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        return [];
+      }
     }
   }
 
@@ -149,8 +173,22 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
       return list
           .map((item) => OfferModel.fromJson(item as Map<String, dynamic>))
           .toList();
-    } catch (e) {
-      return [];
+    } catch (_) {
+      try {
+        final response = await _client
+            .from('publicaciones')
+            .select()
+            .eq('activa', true)
+            .ilike('colonia_comunidad', coloniaComunidad)
+            .order('fecha_publicacion', ascending: false);
+
+        final list = response as List;
+        return list
+            .map((item) => OfferModel.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } catch (_) {
+        return [];
+      }
     }
   }
 
@@ -164,7 +202,16 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
           .eq('activa', true)
           .maybeSingle();
 
-      if (response == null) return null;
+      if (response == null) {
+        final pubResponse = await _client
+            .from('publicaciones')
+            .select()
+            .eq('id', id)
+            .eq('activa', true)
+            .maybeSingle();
+        if (pubResponse == null) return null;
+        return OfferModel.fromJson(pubResponse);
+      }
       return OfferModel.fromJson(response);
     } catch (e) {
       return null;
@@ -175,8 +222,12 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
   Future<void> deleteOffer(String id) async {
     try {
       await _client.from('offers').update({'activa': false}).eq('id', id);
-    } catch (e) {
-      throw Exception('No se pudo desactivar la oferta: $e');
+    } catch (_) {
+      try {
+        await _client.from('publicaciones').update({'activa': false}).eq('id', id);
+      } catch (e) {
+        throw Exception('No se pudo desactivar la oferta: $e');
+      }
     }
   }
 }
