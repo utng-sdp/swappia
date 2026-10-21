@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:swappia_app/core/constants/dolores_hidalgo_constants.dart';
-import 'package:swappia_app/core/theme/app_colors.dart';
-import 'package:swappia_app/presentation/widgets/custom_button.dart';
-import 'package:swappia_app/presentation/widgets/custom_text_field.dart';
-import 'package:swappia_app/presentation/widgets/status_banner.dart';
+import 'package:provider/provider.dart';
 
-/// Vista de registro para nuevos vecinos de Swappia en Dolores Hidalgo.
-/// Incluye formulario completo, seleccion hiperlocal de colonia/comunidad,
-/// validaciones sincronizadas con las reglas de negocio y diseno minimalista.
+import '../../../core/constants/dolores_hidalgo_constants.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../viewmodels/auth_viewmodel.dart';
+import '../../widgets/custom_button.dart';
+import '../../widgets/custom_text_field.dart';
+import '../../widgets/status_banner.dart';
+import '../feed/feed_view.dart';
+import 'login_view.dart';
+
+/// Vista de registro vecinal (RegisterView) para Swappia.
+/// Permite capturar nombre, telefono de 10 digitos, correo, colonia/comunidad
+/// de Dolores Hidalgo y credenciales seguras.
 class RegisterView extends StatefulWidget {
+  static const routeName = '/register';
+
   final VoidCallback? onNavigateToLogin;
-  final Future<void> Function({
-    required String nombre,
-    required String telefono,
-    required String email,
-    required String colonia,
-    String? oficio,
-    required String password,
-  })? onRegisterSubmit;
+  final Future<void> Function(Map<String, dynamic> data)? onRegisterSubmit;
 
   const RegisterView({
     super.key,
@@ -31,14 +31,14 @@ class RegisterView extends StatefulWidget {
 
 class _RegisterViewState extends State<RegisterView> {
   final _formKey = GlobalKey<FormState>();
+
   final _nombreController = TextEditingController();
   final _telefonoController = TextEditingController();
   final _emailController = TextEditingController();
-  final _oficioController = TextEditingController();
+  final _coloniaController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String? _selectedColonia;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -47,65 +47,60 @@ class _RegisterViewState extends State<RegisterView> {
     _nombreController.dispose();
     _telefonoController.dispose();
     _emailController.dispose();
-    _oficioController.dispose();
+    _coloniaController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  String? _validateNombre(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Por favor ingresa tu nombre completo';
-    }
-    if (value.trim().length < 3) {
-      return 'El nombre debe tener al menos 3 letras';
+  String? _validateNombre(String? v) {
+    if (v == null || v.trim().isEmpty) {
+      return 'El nombre es obligatorio';
     }
     return null;
   }
 
-  String? _validateTelefono(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Ingresa tu telefono para contacto vecinal';
-    }
-    final clean = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (clean.length != 10) {
+  String? _validateTelefono(String? v) {
+    final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 10) {
       return 'El telefono debe tener exactamente 10 digitos';
     }
     return null;
   }
 
-  String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
+  String? _validateEmail(String? v) {
+    if (v == null || v.trim().isEmpty) {
       return 'Por favor ingresa tu correo electronico';
     }
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    if (!emailRegex.hasMatch(value.trim())) {
-      return 'Ingresa un formato de correo valido';
+    if (!v.contains('@') || !v.contains('.')) {
+      return 'Ingrese un correo electrónico válido';
     }
     return null;
   }
 
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Por favor ingresa una contrasena';
-    }
-    if (value.length < 6) {
-      return 'La contrasena debe tener al menos 6 caracteres';
+  String? _validateColonia(String? v) {
+    if (v == null || v.trim().isEmpty) {
+      return 'Indique su colonia o comunidad';
     }
     return null;
   }
 
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Por favor confirma tu contrasena';
+  String? _validatePassword(String? v) {
+    if (v == null || v.length < 6) {
+      return 'La contraseña debe tener al menos 6 caracteres';
     }
-    if (value != _passwordController.text) {
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? v) {
+    if (v != null && v.isNotEmpty && v != _passwordController.text) {
       return 'Las contrasenas no coinciden';
     }
     return null;
   }
 
-  Future<void> _handleRegister() async {
+  Future<void> _submitRegister() async {
+    FocusScope.of(context).unfocus();
     if (_errorMessage != null) {
       setState(() => _errorMessage = null);
     }
@@ -114,249 +109,314 @@ class _RegisterViewState extends State<RegisterView> {
       return;
     }
 
-    if (_selectedColonia == null) {
-      setState(() {
-        _errorMessage = 'Selecciona tu colonia o comunidad de Dolores Hidalgo';
-      });
+    if (widget.onRegisterSubmit != null) {
+      setState(() => _isLoading = true);
+      try {
+        await widget.onRegisterSubmit!({
+          'nombre': _nombreController.text.trim(),
+          'colonia': _coloniaController.text.trim(),
+          'telefono': _telefonoController.text.trim(),
+          'email': _emailController.text.trim(),
+          'password': _passwordController.text,
+        });
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          });
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
       return;
     }
 
-    setState(() => _isLoading = true);
-
+    AuthViewModel? authViewModel;
     try {
-      if (widget.onRegisterSubmit != null) {
-        await widget.onRegisterSubmit!(
-          nombre: _nombreController.text.trim(),
-          telefono: _telefonoController.text.trim(),
-          email: _emailController.text.trim(),
-          colonia: _selectedColonia!,
-          oficio: _oficioController.text.trim().isEmpty ? null : _oficioController.text.trim(),
-          password: _passwordController.text,
+      authViewModel = context.read<AuthViewModel>();
+    } catch (_) {}
+
+    if (authViewModel != null) {
+      authViewModel.clearError();
+      final success = await authViewModel.register(
+        nombre: _nombreController.text.trim(),
+        coloniaComunidad: _coloniaController.text.trim(),
+        telefono: _telefonoController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (success && mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          FeedView.routeName,
+          (route) => false,
         );
-      } else {
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registro exitoso. Bienvenido a Swappia!'),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: AppColors.secondary,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _showColoniasSelector() {
+    showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_city_rounded, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Colonias de Dolores Hidalgo',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: DoloresHidalgoConstants.coloniasYComunidades.length,
+                    itemBuilder: (context, index) {
+                      final item = DoloresHidalgoConstants.coloniasYComunidades[index];
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.location_on_outlined, size: 18),
+                        title: Text(item, style: const TextStyle(fontSize: 14)),
+                        onTap: () => Navigator.of(ctx).pop(item),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((selected) {
+      if (selected != null && mounted) {
+        setState(() {
+          _coloniaController.text = selected;
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
+
+    AuthViewModel? authViewModel;
+    try {
+      authViewModel = context.watch<AuthViewModel>();
+    } catch (_) {}
+
+    final bool isBusy = _isLoading || (authViewModel?.isLoading ?? false);
+    final String? effectiveError = _errorMessage ??
+        (authViewModel?.hasError == true ? authViewModel?.errorMessage : null);
+
+    const EdgeInsets fieldPadding = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Registro de Vecino'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        toolbarHeight: 46,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (widget.onNavigateToLogin != null) {
+              widget.onNavigateToLogin!();
+            } else if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushReplacementNamed(LoginView.routeName);
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 2.0),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
+              constraints: const BoxConstraints(maxWidth: 440),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // --- ENCABEZADO ---
-                    Center(
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withValues(alpha: isDark ? 0.2 : 0.12),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: AppColors.secondary.withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.person_add_alt_1_rounded,
-                          size: 32,
-                          color: AppColors.secondary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     Text(
                       'Crear Perfil Vecinal',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colorScheme.onSurface,
-                        letterSpacing: -0.3,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Registrate para intercambiar bienes, ofrecer tus oficios o solicitar ayuda en tu colonia.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
-                    // --- BANNER DE ERROR ---
-                    if (_errorMessage != null)
+                    if (effectiveError != null)
                       StatusBanner(
-                        message: _errorMessage!,
+                        key: const Key('register_error_banner'),
+                        textKey: const Key('register_error_text'),
+                        message: effectiveError,
                         type: StatusBannerType.error,
-                        onDismiss: () => setState(() => _errorMessage = null),
+                        margin: const EdgeInsets.only(bottom: 8.0),
+                        onDismiss: () {
+                          setState(() => _errorMessage = null);
+                          authViewModel?.clearError();
+                        },
                       ),
 
-                    // --- CAMPOS DE FORMULARIO ---
+                    // Campo 0: Nombre
                     CustomTextField(
+                      key: const Key('register_nombre_field'),
                       controller: _nombreController,
                       label: 'Nombre completo',
                       hint: 'Ej. Don Carlos Martinez',
+                      contentPadding: fieldPadding,
                       textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                      prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
                       validator: _validateNombre,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
 
+                    // Campo 1: Telefono
                     CustomTextField(
+                      key: const Key('register_telefono_field'),
                       controller: _telefonoController,
                       label: 'Telefono celular (10 digitos)',
                       hint: '4181234567',
+                      contentPadding: fieldPadding,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.phone_outlined, size: 20),
+                      prefixIcon: const Icon(Icons.phone_outlined, size: 18),
                       validator: _validateTelefono,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
 
+                    // Campo 2: Correo
                     CustomTextField(
+                      key: const Key('register_email_field'),
                       controller: _emailController,
                       label: 'Correo electronico',
                       hint: 'vecino@ejemplo.com',
+                      contentPadding: fieldPadding,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
+                      prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
                       validator: _validateEmail,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
 
-                    // --- DROPDOWN DE COLONIAS / COMUNIDADES ---
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedColonia,
-                      isExpanded: true,
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                      dropdownColor: theme.colorScheme.surface,
-                      decoration: InputDecoration(
-                        labelText: 'Colonia o comunidad (Dolores Hidalgo)',
-                        hintText: 'Selecciona tu colonia o comunidad',
-                        prefixIcon: const Icon(Icons.location_on_outlined, size: 20),
-                      ),
-                      items: DoloresHidalgoConstants.coloniasYComunidades
-                          .map((colonia) => DropdownMenuItem(
-                                value: colonia,
-                                child: Text(
-                                  colonia,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        setState(() {
-                          _selectedColonia = val;
-                          if (_errorMessage != null) _errorMessage = null;
-                        });
-                      },
-                      validator: (val) {
-                        if (val == null || val.isEmpty) {
-                          return 'Por favor selecciona tu colonia o comunidad';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
+                    // Campo 3: Colonia / Comunidad
                     CustomTextField(
-                      controller: _oficioController,
-                      label: 'Oficio principal o bien para trueque (opcional)',
-                      hint: 'Ej. Electricista, Costura, Artesanias, Ropa...',
+                      key: const Key('register_colonia_field'),
+                      controller: _coloniaController,
+                      label: 'Colonia o comunidad (Dolores Hidalgo)',
+                      hint: 'Ej. Centro, La Lindavista, El Llanito...',
+                      contentPadding: fieldPadding,
                       textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.handyman_outlined, size: 20),
+                      prefixIcon: const Icon(Icons.location_on_outlined, size: 18),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 18),
+                        tooltip: 'Ver lista de colonias',
+                        onPressed: _showColoniasSelector,
+                      ),
+                      validator: _validateColonia,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
 
+                    // Campo 4: Contrasena
                     CustomTextField(
+                      key: const Key('register_password_field'),
                       controller: _passwordController,
                       label: 'Contrasena',
                       hint: 'Minimo 6 caracteres',
+                      contentPadding: fieldPadding,
                       isPassword: true,
                       textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                      prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
                       validator: _validatePassword,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
 
+                    // Campo 5: Confirmar contrasena
                     CustomTextField(
                       controller: _confirmPasswordController,
                       label: 'Confirmar contrasena',
                       hint: 'Repite tu contrasena',
+                      contentPadding: fieldPadding,
                       isPassword: true,
                       textInputAction: TextInputAction.done,
-                      prefixIcon: const Icon(Icons.lock_reset_rounded, size: 20),
+                      prefixIcon: const Icon(Icons.lock_reset_rounded, size: 18),
                       validator: _validateConfirmPassword,
-                      onFieldSubmitted: (_) => _handleRegister(),
+                      onFieldSubmitted: (_) => _submitRegister(),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
 
-                    // --- BOTON DE ACCION PRINCIPAL ---
                     CustomButton(
+                      key: const Key('register_submit_button'),
                       text: 'Registrarme como Vecino',
                       variant: CustomButtonVariant.secondary,
-                      icon: const Icon(Icons.person_add_alt_1_rounded),
-                      isLoading: _isLoading,
-                      onPressed: _handleRegister,
+                      icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                      height: 44,
+                      isLoading: isBusy,
+                      onPressed: isBusy ? null : _submitRegister,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
-                    // --- PIE / VOLVER A LOGIN ---
                     Wrap(
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          'Ya tienes cuenta?',
+                          'Ya tienes cuenta? ',
                           style: TextStyle(
                             color: colorScheme.onSurfaceVariant,
-                            fontSize: 14,
+                            fontSize: 13,
                           ),
                         ),
                         TextButton(
-                          onPressed: widget.onNavigateToLogin,
+                          onPressed: () {
+                            authViewModel?.clearError();
+                            if (widget.onNavigateToLogin != null) {
+                              widget.onNavigateToLogin!();
+                            } else if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            } else {
+                              Navigator.of(context).pushReplacementNamed(LoginView.routeName);
+                            }
+                          },
                           child: Text(
                             'Inicia sesion aqui',
                             style: TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                              fontSize: 13,
                             ),
                           ),
                         ),

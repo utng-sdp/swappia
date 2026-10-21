@@ -14,6 +14,7 @@ class StatusBanner extends StatelessWidget {
   final StatusBannerType type;
   final VoidCallback? onDismiss;
   final EdgeInsetsGeometry margin;
+  final Key? textKey;
 
   const StatusBanner({
     super.key,
@@ -21,6 +22,7 @@ class StatusBanner extends StatelessWidget {
     this.type = StatusBannerType.error,
     this.onDismiss,
     this.margin = const EdgeInsets.only(bottom: 16.0),
+    this.textKey,
   });
 
   @override
@@ -73,6 +75,7 @@ class StatusBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
+              key: textKey,
               style: TextStyle(
                 color: fg,
                 fontSize: 13.5,

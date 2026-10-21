@@ -1,98 +1,121 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:swappia_app/core/services/supabase_service.dart';
-import 'package:swappia_app/core/theme/app_theme.dart';
-import 'package:swappia_app/presentation/views/auth/login_view.dart';
-import 'package:swappia_app/presentation/views/auth/register_view.dart';
+import 'package:provider/provider.dart';
+
+import 'core/services/supabase_service.dart';
+import 'core/theme/app_theme.dart';
+import 'data/datasources/local/auth_local_datasource.dart';
+import 'data/datasources/remote/auth_remote_datasource.dart';
+import 'data/repositories/auth_repository_impl.dart';
+import 'domain/usecases/get_session_usecase.dart';
+import 'domain/usecases/login_usecase.dart';
+import 'domain/usecases/register_usecase.dart';
+import 'presentation/viewmodels/auth_viewmodel.dart';
+import 'presentation/views/auth/login_view.dart';
+import 'presentation/views/auth/register_view.dart';
+import 'presentation/views/feed/feed_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar variables de entorno y Supabase si existen
   try {
     await dotenv.load(fileName: '.env');
     await SupabaseService.initialize();
   } catch (e) {
-    debugPrint('Nota: Inicializacion de Supabase/dotenv: $e');
+    debugPrint('Supabase/dotenv initialization: ');
   }
 
-  runApp(const SwappiaApp());
+  final localDataSource = SharedPreferencesAuthLocalDataSource();
+  final remoteDataSource = MockAuthRemoteDataSource();
+  final authRepository = AuthRepositoryImpl(
+    remoteDataSource: remoteDataSource,
+    localDataSource: localDataSource,
+  );
+
+  final loginUseCase = LoginUseCase(authRepository);
+  final registerUseCase = RegisterUseCase(authRepository);
+  final getSessionUseCase = GetSessionUseCase(authRepository);
+
+  final authViewModel = AuthViewModel(
+    loginUseCase: loginUseCase,
+    registerUseCase: registerUseCase,
+    getSessionUseCase: getSessionUseCase,
+  );
+
+  // Restaurar sesion activa persistida si existe
+  await authViewModel.checkSession();
+
+  runApp(SwappiaApp(authViewModel: authViewModel));
 }
 
 class SwappiaApp extends StatefulWidget {
-  const SwappiaApp({super.key});
+  final AuthViewModel? authViewModel;
+
+  const SwappiaApp({super.key, this.authViewModel});
 
   @override
   State<SwappiaApp> createState() => _SwappiaAppState();
 }
 
 class _SwappiaAppState extends State<SwappiaApp> {
-  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode = ThemeMode.system;
 
-  void _toggleTheme() {
+  void toggleTheme() {
     setState(() {
-      _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+      _themeMode =
+          _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    final appWidget = MaterialApp(
       title: 'Swappia',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _themeMode,
-      home: AuthNavigationWrapper(
-        isDarkMode: _themeMode == ThemeMode.dark,
-        onToggleTheme: _toggleTheme,
+      routes: {
+        LoginView.routeName: (context) => const LoginView(),
+        RegisterView.routeName: (context) => const RegisterView(),
+        FeedView.routeName: (context) => const FeedView(),
+      },
+      home: Consumer<AuthViewModel>(
+        builder: (context, auth, _) {
+          if (auth.isLoading && auth.status == AuthStatus.loading && auth.currentUser == null) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          if (auth.isAuthenticated) {
+            return const FeedView();
+          }
+          return const LoginView();
+        },
       ),
     );
-  }
-}
 
-class AuthNavigationWrapper extends StatefulWidget {
-  final bool isDarkMode;
-  final VoidCallback onToggleTheme;
+    if (widget.authViewModel != null) {
+      return ChangeNotifierProvider<AuthViewModel>.value(
+        value: widget.authViewModel!,
+        child: appWidget,
+      );
+    }
 
-  const AuthNavigationWrapper({
-    super.key,
-    required this.isDarkMode,
-    required this.onToggleTheme,
-  });
-
-  @override
-  State<AuthNavigationWrapper> createState() => _AuthNavigationWrapperState();
-}
-
-class _AuthNavigationWrapperState extends State<AuthNavigationWrapper> {
-  bool _showLogin = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_showLogin ? 'Swappia - Inicio de Sesion' : 'Swappia - Registro'),
-        actions: [
-          IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            tooltip: widget.isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
-            onPressed: widget.onToggleTheme,
-          ),
-        ],
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _showLogin
-            ? LoginView(
-                key: const ValueKey('login_view'),
-                onNavigateToRegister: () => setState(() => _showLogin = false),
-              )
-            : RegisterView(
-                key: const ValueKey('register_view'),
-                onNavigateToLogin: () => setState(() => _showLogin = true),
-              ),
-      ),
+    return ChangeNotifierProvider<AuthViewModel>(
+      create: (_) {
+        final local = SharedPreferencesAuthLocalDataSource();
+        final remote = MockAuthRemoteDataSource();
+        final repo = AuthRepositoryImpl(remoteDataSource: remote, localDataSource: local);
+        return AuthViewModel(
+          loginUseCase: LoginUseCase(repo),
+          registerUseCase: RegisterUseCase(repo),
+          getSessionUseCase: GetSessionUseCase(repo),
+        );
+      },
+      child: appWidget,
     );
   }
 }
