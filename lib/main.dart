@@ -17,16 +17,19 @@ import 'presentation/views/feed/feed_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  bool supabaseInitialized = false;
   try {
     await dotenv.load(fileName: '.env');
     await SupabaseService.initialize();
+    supabaseInitialized = true;
   } catch (e) {
-    debugPrint('Supabase/dotenv initialization: ');
+    debugPrint('Supabase/dotenv initialization: $e');
   }
 
   final localDataSource = SharedPreferencesAuthLocalDataSource();
-  final remoteDataSource = MockAuthRemoteDataSource();
+  final remoteDataSource = supabaseInitialized
+      ? SupabaseAuthRemoteDataSource()
+      : MockAuthRemoteDataSource();
   final authRepository = AuthRepositoryImpl(
     remoteDataSource: remoteDataSource,
     localDataSource: localDataSource,
