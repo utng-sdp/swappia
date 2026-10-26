@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -80,7 +80,9 @@ class _CreateOfferViewState extends State<CreateOfferView> {
     final user = authViewModel?.currentUser;
 
     if (user != null && createOfferVM != null && createOfferVM.coloniaComunidad.isEmpty) {
-      createOfferVM.setColoniaComunidad(user.coloniaComunidad);
+      if (DoloresHidalgoConstants.coloniasYComunidades.contains(user.coloniaComunidad)) {
+        createOfferVM.setColoniaComunidad(user.coloniaComunidad);
+      }
     }
   }
 
@@ -293,7 +295,9 @@ class _CreateOfferViewState extends State<CreateOfferView> {
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       key: const Key('offer_category_dropdown'),
-                      value: vm.categoria.isNotEmpty ? vm.categoria : null,
+                      value: kOfferCategories.contains(vm.categoria)
+                          ? vm.categoria
+                          : null,
                       hint: const Text('Selecciona una categoría'),
                       isExpanded: true,
                       items: kOfferCategories
@@ -356,7 +360,10 @@ class _CreateOfferViewState extends State<CreateOfferView> {
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       key: const Key('offer_colonia_dropdown'),
-                      value: vm.coloniaComunidad.isNotEmpty ? vm.coloniaComunidad : null,
+                      value: DoloresHidalgoConstants.coloniasYComunidades
+                              .contains(vm.coloniaComunidad)
+                          ? vm.coloniaComunidad
+                          : null,
                       hint: const Text('Selecciona colonia o comunidad'),
                       isExpanded: true,
                       items: DoloresHidalgoConstants.coloniasYComunidades
