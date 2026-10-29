@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-
 import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/local/auth_local_datasource.dart';
@@ -9,15 +8,18 @@ import 'data/datasources/remote/auth_remote_datasource.dart';
 import 'data/datasources/remote/offers_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/offer_repository_impl.dart';
+import 'domain/models/offer_entity.dart';
 import 'domain/usecases/get_session_usecase.dart';
 import 'domain/usecases/login_usecase.dart';
 import 'domain/usecases/publish_offer_usecase.dart';
 import 'domain/usecases/register_usecase.dart';
 import 'presentation/viewmodels/auth_viewmodel.dart';
 import 'presentation/viewmodels/create_offer_viewmodel.dart';
+import 'presentation/viewmodels/feed_viewmodel.dart';
 import 'presentation/views/auth/login_view.dart';
 import 'presentation/views/auth/register_view.dart';
 import 'presentation/views/exchange/create_offer_view.dart';
+import 'presentation/views/exchange/offer_detail_view.dart';
 import 'presentation/views/feed/feed_view.dart';
 
 Future<void> main() async {
@@ -63,21 +65,27 @@ Future<void> main() async {
   final createOfferViewModel = CreateOfferViewModel(
     publishOfferUseCase: publishOfferUseCase,
   );
+  final feedViewModel = FeedViewModel(
+    offerRepository: offerRepository,
+  );
 
   runApp(SwappiaApp(
     authViewModel: authViewModel,
     createOfferViewModel: createOfferViewModel,
+    feedViewModel: feedViewModel,
   ));
 }
 
 class SwappiaApp extends StatefulWidget {
   final AuthViewModel? authViewModel;
   final CreateOfferViewModel? createOfferViewModel;
+  final FeedViewModel? feedViewModel;
 
   const SwappiaApp({
     super.key,
     this.authViewModel,
     this.createOfferViewModel,
+    this.feedViewModel,
   });
 
   @override
@@ -107,6 +115,11 @@ class _SwappiaAppState extends State<SwappiaApp> {
         RegisterView.routeName: (context) => const RegisterView(),
         FeedView.routeName: (context) => const FeedView(),
         CreateOfferView.routeName: (context) => const CreateOfferView(),
+        OfferDetailView.routeName: (context) {
+          final offer =
+              ModalRoute.of(context)?.settings.arguments as OfferEntity?;
+          return OfferDetailView(offer: offer);
+        },
       },
       home: Consumer<AuthViewModel>(
         builder: (context, auth, _) {
@@ -149,9 +162,15 @@ class _SwappiaAppState extends State<SwappiaApp> {
           ),
         );
 
+    final effectiveOfferRepo = OfferRepositoryImpl();
     final effectiveOfferVM = widget.createOfferViewModel ??
         CreateOfferViewModel(
-          publishOfferUseCase: PublishOfferUseCase(OfferRepositoryImpl()),
+          publishOfferUseCase: PublishOfferUseCase(effectiveOfferRepo),
+        );
+
+    final effectiveFeedVM = widget.feedViewModel ??
+        FeedViewModel(
+          offerRepository: effectiveOfferRepo,
         );
 
     return MultiProvider(
@@ -159,6 +178,7 @@ class _SwappiaAppState extends State<SwappiaApp> {
         ChangeNotifierProvider<AuthViewModel>.value(value: effectiveAuthVM),
         ChangeNotifierProvider<CreateOfferViewModel>.value(
             value: effectiveOfferVM),
+        ChangeNotifierProvider<FeedViewModel>.value(value: effectiveFeedVM),
       ],
       child: appWidget,
     );
