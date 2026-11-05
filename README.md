@@ -257,27 +257,27 @@ unApp().
 * **Responsable:** **Pardo Zamarripa Juan Diego** (1223100425)
 * **Objetivo:** Desarrollar las funciones de consulta en PostgreSQL y la capa de datos para recuperar publicaciones ordenadas por fecha reciente y filtradas por la colonia o categoría seleccionada por el usuario, implementando paginación simple y optimización de índices compuestos.
 * **Tareas Realizadas:**
-  1. **Optimización de Índices en PostgreSQL** en supabase/migrations/20261022_optimize_offer_filters_and_indexes.sql:
-     - Creación de índices compuestos condicionales: idx_offers_activa_colonia_fecha, idx_offers_activa_categoria_fecha e idx_offers_activa_colonia_categoria_fecha.
-     - Soporte dual de índices para tablas offers y publicaciones.
-     - Definición de función SQL RPC get_filtered_offers con filtros opcionales y paginación LIMIT/OFFSET.
+  1. **Optimización de Índices en PostgreSQL** en `supabase/migrations/20261022_optimize_offer_filters_and_indexes.sql`:
+     - Creación de índices compuestos condicionales: `idx_offers_activa_colonia_fecha`, `idx_offers_activa_categoria_fecha` e `idx_offers_activa_colonia_categoria_fecha`.
+     - Soporte dual de índices para tablas `offers` y `publicaciones`.
+     - Definición de función SQL RPC `get_filtered_offers` con filtros opcionales y paginación `LIMIT/OFFSET`.
   2. **Query con Filtros y Paginación en OffersRepository e Implementaciones**:
-     - Contrato getFilteredOffers({String? colonia, String? categoria, int page = 0, int limit = 20}) en OfferRepository y OffersRemoteDataSource.
-     - Implementación en SupabaseOffersRemoteDataSource utilizando filtros dinámicos .ilike() y .range() para paginación eficiente a nivel de base de datos.
-     - Implementación en OfferRepositoryImpl con fallback reactivo en memoria para funcionamiento offline y pruebas.
-  3. **Suite de Pruebas Automatizadas** en test/offers_filter_pagination_test.dart:
+     - Contrato `getFilteredOffers({String? colonia, String? categoria, int page = 0, int limit = 20})` en `OfferRepository` y `OffersRemoteDataSource`.
+     - Implementación en `SupabaseOffersRemoteDataSource` utilizando filtros dinámicos `.ilike()` y `.range()` para paginación eficiente a nivel de base de datos.
+     - Implementación en `OfferRepositoryImpl` con fallback reactivo en memoria para funcionamiento offline y pruebas.
+  3. **Suite de Pruebas Automatizadas** en `test/offers_filter_pagination_test.dart`:
      - Verificación del criterio de aceptación: la API devuelve únicamente las publicaciones asociadas a los filtros solicitados (por colonia, por categoría o combinación).
      - Validación de ordenamiento cronológico descendente (ofertas más recientes primero).
      - Validación de paginación por lotes (page 0, 1, 2...).
-     - 84 pruebas automatizadas aprobadas al 100% (lutter test).
+     - 84 pruebas automatizadas aprobadas al 100% (`flutter test`).
 
 #### Criterios de Aceptación Verificados (Issue #15):
 - [x] **La API devuelve únicamente las publicaciones asociadas a los filtros solicitados.**
-- [x] **Query con filtros de colonia y categoría implementado en OffersRepositoryImpl.**
-- [x] **Paginación simple implementada (page, limit).**
+- [x] **Query con filtros de colonia y categoría implementado en `OffersRepositoryImpl`.**
+- [x] **Paginación simple implementada (`page`, `limit`).**
 - [x] **Índices en PostgreSQL optimizados para búsquedas rápidas.**
-- [x] **100% de pruebas aprobadas en el proyecto (84 passed).**
-- [x] **Análisis estático sin errores (lutter analyze = No issues found).**
+- [x] **100% de pruebas aprobadas en el proyecto (`84 passed`).**
+- [x] **Análisis estático sin errores (`flutter analyze = No issues found`).**
 
 ---
 
