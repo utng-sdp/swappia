@@ -106,6 +106,39 @@ void main() {
       expect(jsonBack['precio_estimado'], 120.50);
     });
 
+    test('OfferModel mapea e interpreta correctamente filas de la tabla publicaciones de Supabase', () {
+      final publicacionesRow = {
+        'id': '9a31e847-5d32-4d2b-a164-16e09bbcb001',
+        'usuario_id': 'd97340ab-9111-4b2a-bf34-a3f2901a1111',
+        'titulo': 'Reparación de celulares y cambio de pantallas',
+        'descripcion': 'Servicio técnico especializado en pantallas y baterías',
+        'categoria': 'Servicios u Oficios',
+        'colonia': 'Insurgentes',
+        'fotos': ['https://storage.supabase.co/offer_images/pantalla.jpg'],
+        'modalidad': 'trueque',
+        'tipo': 'ofrezco',
+        'activo': true,
+        'created_at': '2026-11-04T19:30:00.000Z',
+      };
+
+      final model = OfferModel.fromJson(publicacionesRow);
+
+      expect(model.id, '9a31e847-5d32-4d2b-a164-16e09bbcb001');
+      expect(model.usuarioId, 'd97340ab-9111-4b2a-bf34-a3f2901a1111');
+      expect(model.titulo, 'Reparación de celulares y cambio de pantallas');
+      expect(model.categoria, 'Servicios u Oficios');
+      expect(model.coloniaComunidad, 'Insurgentes');
+      expect(model.fotoUrl, 'https://storage.supabase.co/offer_images/pantalla.jpg');
+      expect(model.modalidad, 'trueque');
+      expect(model.activa, isTrue);
+      expect(model.fechaPublicacion, isNotNull);
+
+      final entity = model.toEntity();
+      expect(entity.coloniaComunidad, 'Insurgentes');
+      expect(entity.fotoUrl, 'https://storage.supabase.co/offer_images/pantalla.jpg');
+      expect(entity.activa, isTrue);
+    });
+
     test('Desactivación y eliminación de oferta remota', () async {
       final remoteDataSource = MockOffersRemoteDataSource();
       final repository = OfferRepositoryImpl(remoteDataSource: remoteDataSource);

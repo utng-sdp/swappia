@@ -302,8 +302,24 @@ unApp().
 - [x] **Widget `OfferCard` diseñado mostrando foto, título, badge (Ofrezco/Busco), usuario y colonia.**
 - [x] **Indicador de carga inicial y vista de "Sin resultados" implementados.**
 - [x] **Gesto Pull-to-Refresh integrado en `FeedView`.**
-- [x] **100% de pruebas aprobadas en el proyecto (`89 passed`).**
+- [x] **100% de pruebas aprobadas en el proyecto (`90 passed`).**
 - [x] **Análisis estático sin errores (`flutter analyze = No issues found`).**
+
+---
+
+### Entrega 2.10: Compatibilidad Bidireccional de Esquema Supabase (publicaciones / offers) y Fix de Persistencia
+* **Responsable:** Pardo Zamarripa Juan Diego (1223100425)
+* **Objetivo:** Resolver el error en tiempo de ejecución Could not find the 'activa' column of 'publicaciones' in the schema cache al guardar ofertas desde CreateOfferView y sincronizar el Feed.
+* **Componentes adaptados:**
+  1. lib/data/datasources/remote/offers_remote_datasource.dart:
+     - Normalización estricta del payload hacia publicaciones mapeando columnas reales de PostgreSQL (id, usuario_id, 	itulo, descripcion, categoria, colonia, ctivo, otos, modalidad, 	ipo, created_at).
+     - Subida automática de imágenes locales a Supabase Storage con fallback resiliente.
+     - Extracción segura del UUID del usuario autenticado en la sesión de Supabase (_client.auth.currentUser?.id).
+     - Corrección en consultas de filtrado hiperlocal (getFilteredOffers), detalle (getOfferById) y desactivación (deleteOffer).
+  2. lib/data/models/offer_model.dart:
+     - Soporte híbrido en OfferModel.fromJson para interpretar tanto columnas en español (ctivo, otos array, colonia, created_at) como en formato estándar (ctiva, oto_url, colonia_comunidad, echa_publicacion).
+  3. 	est/offers_remote_datasource_test.dart:
+     - Nueva suite de pruebas unitarias validando el mapeo e integridad de datos provenientes de la tabla publicaciones de Supabase.
 
 ---
 

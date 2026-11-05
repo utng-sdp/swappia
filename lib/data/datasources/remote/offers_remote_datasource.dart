@@ -102,16 +102,60 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
   @override
   Future<OfferModel> createOffer(OfferModel offer) async {
     try {
-      final payload = offer.toJson();
-
-      // Si el id está vacío o es un placeholder temporal, dejamos que PostgreSQL genere el UUID
-      if (payload['id'] == null ||
-          payload['id'].toString().isEmpty ||
-          payload['id'].toString().startsWith('temp-')) {
-        payload.remove('id');
+      // 1. Subida automática de la fotografía a Supabase Storage si es archivo local
+      String uploadedFotoUrl = offer.fotoUrl;
+      if (uploadedFotoUrl.isNotEmpty &&
+          !uploadedFotoUrl.startsWith('http://') &&
+          !uploadedFotoUrl.startsWith('https://') &&
+          !uploadedFotoUrl.startsWith('data:')) {
+        try {
+          final file = File(uploadedFotoUrl);
+          if (await file.exists()) {
+            final fileName = uploadedFotoUrl
+                .split(Platform.pathSeparator)
+                .last
+                .split('/')
+                .last;
+            uploadedFotoUrl = await uploadOfferImage(
+              filePath: uploadedFotoUrl,
+              fileName: fileName,
+            );
+          }
+        } catch (_) {
+          // Si el bucket de storage no estuviera inicializado, conservamos la ruta
+        }
       }
 
+      // Obtener el ID de usuario autenticado en Supabase si no se proporcionó uno válido
+      String effectiveUserId = offer.usuarioId;
+      if (effectiveUserId.isEmpty || effectiveUserId == 'usr_anon') {
+        effectiveUserId = _client.auth.currentUser?.id ?? effectiveUserId;
+      }
+
+      final resolvedOffer = OfferModel(
+        id: offer.id,
+        usuarioId: effectiveUserId,
+        titulo: offer.titulo,
+        descripcion: offer.descripcion,
+        categoria: offer.categoria,
+        coloniaComunidad: offer.coloniaComunidad,
+        fotoUrl: uploadedFotoUrl,
+        modalidad: offer.modalidad,
+        loQueBusca: offer.loQueBusca,
+        precioEstimado: offer.precioEstimado,
+        fechaPublicacion: offer.fechaPublicacion ?? DateTime.now(),
+        activa: offer.activa,
+      );
+
+      // Intentar primero con la tabla 'offers'
       try {
+        final payload = resolvedOffer.toJson();
+        if (payload['id'] == null ||
+            payload['id'].toString().isEmpty ||
+            payload['id'].toString().startsWith('temp-')) {
+          payload.remove('id');
+        }
+
         final response = await _client
             .from('offers')
             .insert(payload)
@@ -120,10 +164,29 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
 
         return OfferModel.fromJson(response);
       } catch (_) {
-        // Fallback a 'publicaciones'
+        // Fallback a 'publicaciones': mapeo estricto con las columnas de PostgreSQL en Supabase
+        // (id, usuario_id, titulo, descripcion, categoria, colonia, activo, fotos, modalidad, tipo, created_at)
+        final pubPayload = <String, dynamic>{
+          'usuario_id': effectiveUserId,
+          'titulo': resolvedOffer.titulo,
+          'descripcion': resolvedOffer.descripcion,
+          'categoria': resolvedOffer.categoria,
+          'colonia': resolvedOffer.coloniaComunidad,
+          'modalidad': resolvedOffer.modalidad,
+          'tipo': resolvedOffer.titulo.trim().toLowerCase().startsWith('busco')
+              ? 'busco'
+              : 'ofrezco',
+          'fotos': uploadedFotoUrl.isNotEmpty ? [uploadedFotoUrl] : <String>[],
+          'activo': resolvedOffer.activa,
+        };
+
+        if (resolvedOffer.id.isNotEmpty && !resolvedOffer.id.startsWith('temp-')) {
+          pubPayload['id'] = resolvedOffer.id;
+        }
+
         final response = await _client
             .from('publicaciones')
-            .insert(payload)
+            .insert(pubPayload)
             .select()
             .single();
 
@@ -183,17 +246,17 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
         var query = _client
             .from('publicaciones')
             .select()
-            .eq('activa', true);
+            .eq('activo', true);
 
         if (colonia != null && colonia.trim().isNotEmpty) {
-          query = query.ilike('colonia_comunidad', colonia.trim());
+          query = query.ilike('colonia', colonia.trim());
         }
         if (categoria != null && categoria.trim().isNotEmpty) {
           query = query.ilike('categoria', categoria.trim());
         }
 
         final response = await query
-            .order('fecha_publicacion', ascending: false)
+            .order('created_at', ascending: false)
             .range(from, to);
 
         final list = response as List;
@@ -221,7 +284,7 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
             .from('publicaciones')
             .select()
             .eq('id', id)
-            .eq('activa', true)
+            .eq('activo', true)
             .maybeSingle();
         if (pubResponse == null) return null;
         return OfferModel.fromJson(pubResponse);
@@ -238,7 +301,7 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
       await _client.from('offers').update({'activa': false}).eq('id', id);
     } catch (_) {
       try {
-        await _client.from('publicaciones').update({'activa': false}).eq('id', id);
+        await _client.from('publicaciones').update({'activo': false}).eq('id', id);
       } catch (e) {
         throw Exception('No se pudo desactivar la oferta: $e');
       }
@@ -246,7 +309,6 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
   }
 }
 
-/// Implementación Mock en memoria para pruebas unitarias y modo sin conexión.
 class MockOffersRemoteDataSource implements OffersRemoteDataSource {
   final List<OfferModel> _storedOffers = [];
 

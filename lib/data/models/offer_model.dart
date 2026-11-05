@@ -64,28 +64,54 @@ class OfferModel {
   }
 
   factory OfferModel.fromJson(Map<String, dynamic> json) {
+    // 1. Manejo robusto de fotos: soporte para array 'fotos', 'foto_url' o 'fotoUrl'
+    String resolvedFotoUrl = '';
+    if (json['fotos'] != null) {
+      if (json['fotos'] is List && (json['fotos'] as List).isNotEmpty) {
+        resolvedFotoUrl = (json['fotos'] as List).first.toString();
+      } else if (json['fotos'] is String) {
+        resolvedFotoUrl = json['fotos'].toString();
+      }
+    }
+    if (resolvedFotoUrl.isEmpty) {
+      resolvedFotoUrl = (json['foto_url'] ?? json['fotoUrl'] ?? '').toString();
+    }
+
+    // 2. Manejo de estado activo: 'activo' (tabla publicaciones), 'activa' (tabla offers)
+    final rawActivo = json['activo'] ?? json['activa'];
+    final bool isActiva = rawActivo == null ? true : (rawActivo == true || rawActivo == 1);
+
+    // 3. Manejo de colonia: 'colonia' o 'colonia_comunidad'
+    final String resolvedColonia = (json['colonia'] ??
+            json['colonia_comunidad'] ??
+            json['coloniaComunidad'] ??
+            '')
+        .toString();
+
+    // 4. Manejo de fecha: 'created_at' o 'fecha_publicacion'
+    DateTime? fecha;
+    final rawFecha = json['created_at'] ??
+        json['fecha_publicacion'] ??
+        json['fechaPublicacion'];
+    if (rawFecha != null) {
+      fecha = DateTime.tryParse(rawFecha.toString());
+    }
+
     return OfferModel(
       id: (json['id'] ?? '').toString(),
       usuarioId: (json['usuario_id'] ?? json['usuarioId'] ?? '').toString(),
       titulo: (json['titulo'] ?? '').toString(),
       descripcion: (json['descripcion'] ?? '').toString(),
       categoria: (json['categoria'] ?? '').toString(),
-      coloniaComunidad: (json['colonia_comunidad'] ??
-              json['coloniaComunidad'] ??
-              '')
-          .toString(),
-      fotoUrl: (json['foto_url'] ?? json['fotoUrl'] ?? '').toString(),
+      coloniaComunidad: resolvedColonia,
+      fotoUrl: resolvedFotoUrl,
       modalidad: (json['modalidad'] ?? 'trueque').toString(),
       loQueBusca: json['lo_que_busca']?.toString() ??
           json['loQueBusca']?.toString(),
       precioEstimado: (json['precio_estimado'] as num?)?.toDouble() ??
           (json['precioEstimado'] as num?)?.toDouble(),
-      fechaPublicacion: json['fecha_publicacion'] != null
-          ? DateTime.tryParse(json['fecha_publicacion'].toString())
-          : (json['fechaPublicacion'] != null
-              ? DateTime.tryParse(json['fechaPublicacion'].toString())
-              : null),
-      activa: json['activa'] == true || json['activa'] == 1,
+      fechaPublicacion: fecha,
+      activa: isActiva,
     );
   }
 
