@@ -43,6 +43,14 @@ abstract class OffersRemoteDataSource {
 class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
   final SupabaseClient? _customClient;
   static const String bucketName = 'offer_images';
+  static final RegExp _uuidRegex = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
+  bool _isValidUuid(String? value) {
+    if (value == null) return false;
+    return _uuidRegex.hasMatch(value.trim());
+  }
 
   SupabaseOffersRemoteDataSource({SupabaseClient? client})
       : _customClient = client;
@@ -128,8 +136,11 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
 
       // Obtener el ID de usuario autenticado en Supabase si no se proporcionó uno válido
       String effectiveUserId = offer.usuarioId;
-      if (effectiveUserId.isEmpty || effectiveUserId == 'usr_anon') {
-        effectiveUserId = _client.auth.currentUser?.id ?? effectiveUserId;
+      if (!_isValidUuid(effectiveUserId)) {
+        final currentAuthId = _client.auth.currentUser?.id;
+        if (currentAuthId != null && _isValidUuid(currentAuthId)) {
+          effectiveUserId = currentAuthId;
+        }
       }
 
       final resolvedOffer = OfferModel(
@@ -150,9 +161,7 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
       // Intentar primero con la tabla 'offers'
       try {
         final payload = resolvedOffer.toJson();
-        if (payload['id'] == null ||
-            payload['id'].toString().isEmpty ||
-            payload['id'].toString().startsWith('temp-')) {
+        if (!_isValidUuid(payload['id']?.toString())) {
           payload.remove('id');
         }
 
@@ -180,7 +189,9 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
           'activo': resolvedOffer.activa,
         };
 
-        if (resolvedOffer.id.isNotEmpty && !resolvedOffer.id.startsWith('temp-')) {
+        // En PostgreSQL 'id' es de tipo UUID. Solo se incluye si es un UUID válido,
+        // de lo contrario se deja que la base de datos genere gen_random_uuid().
+        if (_isValidUuid(resolvedOffer.id)) {
           pubPayload['id'] = resolvedOffer.id;
         }
 
@@ -280,6 +291,7 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
           .maybeSingle();
 
       if (response == null) {
+        if (!_isValidUuid(id)) return null;
         final pubResponse = await _client
             .from('publicaciones')
             .select()
@@ -290,7 +302,7 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
         return OfferModel.fromJson(pubResponse);
       }
       return OfferModel.fromJson(response);
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
