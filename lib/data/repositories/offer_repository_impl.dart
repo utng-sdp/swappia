@@ -27,37 +27,60 @@ class OfferRepositoryImpl implements OfferRepository {
 
   @override
   Future<List<OfferEntity>> getOffers() async {
-    if (_remoteDataSource != null) {
-      try {
-        final remoteList = await _remoteDataSource!.getOffers();
-        if (remoteList.isNotEmpty) {
-          return remoteList.map((m) => m.toEntity()).toList();
-        }
-      } catch (_) {
-        // Fallback a memoria si la red falla
-      }
-    }
-    return _inMemoryOffers.map((m) => m.toEntity()).toList();
+    return getFilteredOffers();
   }
 
   @override
   Future<List<OfferEntity>> getOffersByColonia(String coloniaComunidad) async {
+    return getFilteredOffers(colonia: coloniaComunidad);
+  }
+
+  @override
+  Future<List<OfferEntity>> getFilteredOffers({
+    String? colonia,
+    String? categoria,
+    int page = 0,
+    int limit = 20,
+  }) async {
     if (_remoteDataSource != null) {
       try {
-        final remoteList =
-            await _remoteDataSource!.getOffersByColonia(coloniaComunidad);
-        if (remoteList.isNotEmpty) {
-          return remoteList.map((m) => m.toEntity()).toList();
-        }
+        final remoteList = await _remoteDataSource!.getFilteredOffers(
+          colonia: colonia,
+          categoria: categoria,
+          page: page,
+          limit: limit,
+        );
+        return remoteList.map((m) => m.toEntity()).toList();
       } catch (_) {
         // Fallback a memoria si la red falla
       }
     }
-    return _inMemoryOffers
-        .where((m) =>
-            m.coloniaComunidad.toLowerCase() == coloniaComunidad.toLowerCase())
-        .map((m) => m.toEntity())
-        .toList();
+
+    var results = _inMemoryOffers.where((m) => m.activa);
+
+    if (colonia != null && colonia.trim().isNotEmpty) {
+      results = results.where((m) =>
+          m.coloniaComunidad.trim().toLowerCase() ==
+          colonia.trim().toLowerCase());
+    }
+
+    if (categoria != null && categoria.trim().isNotEmpty) {
+      results = results.where((m) =>
+          m.categoria.trim().toLowerCase() ==
+          categoria.trim().toLowerCase());
+    }
+
+    final sorted = results.toList()
+      ..sort((a, b) {
+        final dateA =
+            a.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final dateB =
+            b.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return dateB.compareTo(dateA);
+      });
+
+    final skip = page * limit;
+    return sorted.skip(skip).take(limit).map((m) => m.toEntity()).toList();
   }
 
   @override
@@ -73,7 +96,7 @@ class OfferRepositoryImpl implements OfferRepository {
       }
     }
     try {
-      final model = _inMemoryOffers.firstWhere((m) => m.id == id);
+      final model = _inMemoryOffers.firstWhere((m) => m.id == id && m.activa);
       return model.toEntity();
     } catch (_) {
       return null;

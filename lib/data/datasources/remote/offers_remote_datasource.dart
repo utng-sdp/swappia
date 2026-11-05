@@ -23,6 +23,15 @@ abstract class OffersRemoteDataSource {
   /// Filtra ofertas activas por colonia o comunidad de Dolores Hidalgo.
   Future<List<OfferModel>> getOffersByColonia(String coloniaComunidad);
 
+  /// Recupera publicaciones activas ordenadas por fecha reciente, filtradas
+  /// por colonia y/o categoría con soporte de paginación simple.
+  Future<List<OfferModel>> getFilteredOffers({
+    String? colonia,
+    String? categoria,
+    int page = 0,
+    int limit = 20,
+  });
+
   /// Obtiene una oferta específica por su identificador único.
   Future<OfferModel?> getOfferById(String id);
 
@@ -130,44 +139,40 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
 
   @override
   Future<List<OfferModel>> getOffers() async {
-    try {
-      final response = await _client
-          .from('offers')
-          .select()
-          .eq('activa', true)
-          .order('fecha_publicacion', ascending: false);
-
-      final list = response as List;
-      return list
-          .map((item) => OfferModel.fromJson(item as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      try {
-        final response = await _client
-            .from('publicaciones')
-            .select()
-            .eq('activa', true)
-            .order('fecha_publicacion', ascending: false);
-
-        final list = response as List;
-        return list
-            .map((item) => OfferModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      } catch (_) {
-        return [];
-      }
-    }
+    return getFilteredOffers();
   }
 
   @override
   Future<List<OfferModel>> getOffersByColonia(String coloniaComunidad) async {
+    return getFilteredOffers(colonia: coloniaComunidad);
+  }
+
+  @override
+  Future<List<OfferModel>> getFilteredOffers({
+    String? colonia,
+    String? categoria,
+    int page = 0,
+    int limit = 20,
+  }) async {
+    final from = page * limit;
+    final to = from + limit - 1;
+
     try {
-      final response = await _client
+      var query = _client
           .from('offers')
           .select()
-          .eq('activa', true)
-          .ilike('colonia_comunidad', coloniaComunidad)
-          .order('fecha_publicacion', ascending: false);
+          .eq('activa', true);
+
+      if (colonia != null && colonia.trim().isNotEmpty) {
+        query = query.ilike('colonia_comunidad', colonia.trim());
+      }
+      if (categoria != null && categoria.trim().isNotEmpty) {
+        query = query.ilike('categoria', categoria.trim());
+      }
+
+      final response = await query
+          .order('fecha_publicacion', ascending: false)
+          .range(from, to);
 
       final list = response as List;
       return list
@@ -175,12 +180,21 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
           .toList();
     } catch (_) {
       try {
-        final response = await _client
+        var query = _client
             .from('publicaciones')
             .select()
-            .eq('activa', true)
-            .ilike('colonia_comunidad', coloniaComunidad)
-            .order('fecha_publicacion', ascending: false);
+            .eq('activa', true);
+
+        if (colonia != null && colonia.trim().isNotEmpty) {
+          query = query.ilike('colonia_comunidad', colonia.trim());
+        }
+        if (categoria != null && categoria.trim().isNotEmpty) {
+          query = query.ilike('categoria', categoria.trim());
+        }
+
+        final response = await query
+            .order('fecha_publicacion', ascending: false)
+            .range(from, to);
 
         final list = response as List;
         return list
@@ -277,18 +291,45 @@ class MockOffersRemoteDataSource implements OffersRemoteDataSource {
 
   @override
   Future<List<OfferModel>> getOffers() async {
-    await Future.delayed(const Duration(milliseconds: 30));
-    return _storedOffers.where((o) => o.activa).toList();
+    return getFilteredOffers();
   }
 
   @override
   Future<List<OfferModel>> getOffersByColonia(String coloniaComunidad) async {
+    return getFilteredOffers(colonia: coloniaComunidad);
+  }
+
+  @override
+  Future<List<OfferModel>> getFilteredOffers({
+    String? colonia,
+    String? categoria,
+    int page = 0,
+    int limit = 20,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 30));
-    return _storedOffers
-        .where((o) =>
-            o.activa &&
-            o.coloniaComunidad.toLowerCase() == coloniaComunidad.toLowerCase())
-        .toList();
+    var results = _storedOffers.where((o) => o.activa);
+
+    if (colonia != null && colonia.trim().isNotEmpty) {
+      results = results.where((o) =>
+          o.coloniaComunidad.trim().toLowerCase() ==
+          colonia.trim().toLowerCase());
+    }
+
+    if (categoria != null && categoria.trim().isNotEmpty) {
+      results = results.where((o) =>
+          o.categoria.trim().toLowerCase() ==
+          categoria.trim().toLowerCase());
+    }
+
+    final sorted = results.toList()
+      ..sort((a, b) {
+        final dateA = a.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final dateB = b.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return dateB.compareTo(dateA);
+      });
+
+    final skip = page * limit;
+    return sorted.skip(skip).take(limit).toList();
   }
 
   @override
