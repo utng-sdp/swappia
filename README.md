@@ -279,7 +279,34 @@ unApp().
 - [x] **100% de pruebas aprobadas en el proyecto (`84 passed`).**
 - [x] **Análisis estático sin errores (`flutter analyze = No issues found`).**
 
+### Entrega 2.9: Diseño de Feed Principal y Tarjeta de Publicación (OfferCard) (Issue [#16](https://github.com/utng-sdp/swappia/issues/16))
+* **Responsable:** **Aguayo Santana Carlos Samael** (1223100396) / **Colaboración:** **Pardo Zamarripa Juan Diego** (1223100425)
+* **Objetivo:** Construir la pantalla principal (`FeedView`) con listado de tarjetas (`OfferCard`) que destacan el distintivo visual entre bienes y servicios vecinales.
+* **Tareas Realizadas:**
+  1. **Componente Reutilizable `OfferCard`** en `lib/presentation/widgets/offer_card.dart`:
+     - Renderizado de fotografía multimedia (soporte para URLs de Supabase Storage, archivos locales y placeholders según la naturaleza de la publicación).
+     - Badges distintivos interactivos: distintivo "OFREZCO" vs "BUSCO", distinción visual entre "Bien" y "Servicio", y modalidad ("Trueque", "Efectivo", "Mixto").
+     - Visualización integral: título descriptivo, usuario vecinal, colonia de Dolores Hidalgo y propuesta de intercambio o precio de referencia.
+     - Navegación al pulsar la tarjeta para abrir el detalle completo (`OfferDetailView`).
+  2. **Estados en `FeedView` e Interacción de Usuario** en `lib/presentation/views/feed/feed_view.dart`:
+     - Indicador de carga inicial (`CircularProgressIndicator`) durante la recuperación de datos.
+     - Vista de "Sin resultados" (`_buildEmptyState`) con mensaje contextual y botón de reinicio de búsqueda.
+     - Gesto interactivo Pull-to-Refresh (`RefreshIndicator`) para recargar ofertas y validar sesión vecinal.
+  3. **Suite de Pruebas Automatizadas** en `test/offer_card_widget_test.dart` y `test/feed_navigation_test.dart`:
+     - Verificación del criterio de aceptación: renderizado adecuado de la información e imágenes recibidas.
+     - Validación de distintivos visuales, respuesta a pulsación (`onTap`) y soporte de modo oscuro.
+     - 89 pruebas automatizadas aprobadas al 100% (`flutter test`).
+
+#### Criterios de Aceptación Verificados (Issue #16):
+- [x] **Las tarjetas renderizan adecuadamente la información e imágenes recibidas desde la base de datos.**
+- [x] **Widget `OfferCard` diseñado mostrando foto, título, badge (Ofrezco/Busco), usuario y colonia.**
+- [x] **Indicador de carga inicial y vista de "Sin resultados" implementados.**
+- [x] **Gesto Pull-to-Refresh integrado en `FeedView`.**
+- [x] **100% de pruebas aprobadas en el proyecto (`89 passed`).**
+- [x] **Análisis estático sin errores (`flutter analyze = No issues found`).**
+
 ---
+
 
 ## Arquitectura de Software
 
