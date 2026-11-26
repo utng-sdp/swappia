@@ -3,11 +3,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/models/exchange_entity.dart';
 import '../../../domain/models/offer_entity.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/exchange_viewmodel.dart';
 import '../../viewmodels/feed_viewmodel.dart';
 import '../../widgets/custom_button.dart';
+import 'exchange_confirmation_view.dart';
+import 'propose_exchange_dialog.dart';
+import 'rate_user_view.dart';
 
 /// Pantalla de detalle de una publicación u oferta comunitaria (OfferDetailView).
 /// Muestra información completa del bien o servicio ofertado, detalles de intercambio,
@@ -30,7 +34,6 @@ class OfferDetailView extends StatefulWidget {
 
 class _OfferDetailViewState extends State<OfferDetailView> {
   final TextEditingController _proposalController = TextEditingController();
-  bool _isSendingProposal = false;
   OfferEntity? _currentOffer;
 
   @override
@@ -56,194 +59,71 @@ class _OfferDetailViewState extends State<OfferDetailView> {
   }
 
   void _showProposeExchangeModal(BuildContext context, OfferEntity offer) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (bottomSheetContext) {
-        final theme = Theme.of(context);
-        final isDark = theme.brightness == Brightness.dark;
+    final feedVM = context.read<FeedViewModel?>();
+    final authVM = context.read<AuthViewModel?>();
+    final currentUserId = authVM?.currentUser?.id ?? 'usr_anon';
+    final userOffers = (feedVM?.allOffers ?? const <OfferEntity>[])
+        .where((o) => o.usuarioId == currentUserId && o.id != offer.id)
+        .toList();
 
-        return StatefulBuilder(
-          builder: (modalCtx, setModalState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(24.0),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurface : Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 16,
-                      offset: Offset(0, -4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.secondary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.handshake_rounded,
-                            color: AppColors.secondary,
-                            size: 26,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Proponer Intercambio',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Inicia una conversación vecinal',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.of(bottomSheetContext).pop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Oferta de interés: "${offer.titulo}"',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: AppColors.primary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('proposal_input_field'),
-                      controller: _proposalController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: 'Describe qué ofreces a cambio o tu propuesta de acuerdo...',
-                        filled: true,
-                        fillColor: isDark ? AppColors.darkInputFill : AppColors.lightInputFill,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    CustomButton(
-                      key: const Key('confirm_proposal_button'),
-                      text: 'Enviar Propuesta de Trueque',
-                      icon: const Icon(Icons.send_rounded),
-                      isLoading: _isSendingProposal,
-                      backgroundColor: AppColors.secondary,
-                      onPressed: () async {
-                        final text = _proposalController.text.trim();
-                        if (text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Por favor escribe tu propuesta antes de enviar.'),
-                              backgroundColor: AppColors.error,
-                            ),
-                          );
-                          return;
-                        }
+    ProposeExchangeDialog.show(
+      context,
+      targetOffer: offer,
+      userOffers: userOffers,
+      onSubmit: (submission) async {
+        final exchangeVM = context.read<ExchangeViewModel?>();
 
-                        setModalState(() => _isSendingProposal = true);
-
-                        // 1. Integración con ExchangeViewModel o callback provisto
-                        final exchangeVM = context.read<ExchangeViewModel?>();
-                        final authVM = context.read<AuthViewModel?>();
-                        final currentUserId = authVM?.currentUser?.id ?? 'usr_anon';
-
-                        if (widget.onProposeExchange != null) {
-                          await widget.onProposeExchange!(text);
-                        } else if (exchangeVM != null) {
-                          await exchangeVM.sendProposal(
-                            offerId: offer.id,
-                            usuarioProponenteId: currentUserId,
-                            propuesta: text,
-                            usuarioReceptorId: offer.usuarioId,
-                          );
-                        } else {
-                          // Simular persistencia
-                          await Future.delayed(const Duration(milliseconds: 300));
-                        }
-
-                        setModalState(() => _isSendingProposal = false);
-
-                        if (bottomSheetContext.mounted) {
-                          Navigator.of(bottomSheetContext).pop();
-                        }
-
-                        _proposalController.clear();
-
-                        // 2. Actualización de estado visual a "En propuesta" / "Pendiente de Aceptación"
-                        final updated = offer.copyWith(estado: 'en_propuesta');
-                        setState(() {
-                          _currentOffer = updated;
-                        });
-
-                        // Sincronizar con el FeedViewModel si está presente
-                        if (context.mounted) {
-                          final feedVM = context.read<FeedViewModel?>();
-                          feedVM?.updateOffer(updated);
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Row(
-                                children: [
-                                  Icon(Icons.check_circle, color: Colors.white),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '¡Propuesta de intercambio enviada al vecino con éxito!',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: AppColors.secondary,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
+        if (widget.onProposeExchange != null) {
+          await widget.onProposeExchange!(submission.propuesta);
+        } else if (exchangeVM != null) {
+          final ok = await exchangeVM.sendProposal(
+            offerId: offer.id,
+            usuarioProponenteId: currentUserId,
+            propuesta: submission.propuesta,
+            usuarioReceptorId: offer.usuarioId,
+            modalidad: submission.modalidad,
+            montoEfectivo: submission.montoEfectivo,
+            bienOfrecidoId: submission.bienOfrecidoId,
+            bienOfrecidoTitulo: submission.bienOfrecidoTitulo,
+          );
+          if (!ok) {
+            throw Exception(
+              exchangeVM.errorMessage ??
+                  'No se pudo enviar la propuesta de intercambio.',
             );
-          },
-        );
+          }
+        } else {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+
+        if (!mounted) return;
+        final updated = offer.copyWith(estado: 'en_propuesta');
+        setState(() {
+          _currentOffer = updated;
+        });
+
+        if (context.mounted) {
+          feedVM?.updateOffer(updated);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '¡Propuesta de intercambio enviada al vecino con éxito!',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.secondary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       },
     );
   }
@@ -441,7 +321,8 @@ class _OfferDetailViewState extends State<OfferDetailView> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Reactividad en vivo: observar ExchangeViewModel
+    // Reactividad en vivo: observar AuthViewModel y ExchangeViewModel
+    final authVM = context.watch<AuthViewModel?>();
     final exchangeVM = context.watch<ExchangeViewModel?>();
     var resolvedOffer = _resolveOffer(context);
 
@@ -458,6 +339,9 @@ class _OfferDetailViewState extends State<OfferDetailView> {
     }
 
     var offer = resolvedOffer;
+    final bool isOwnOffer = widget.onProposeExchange == null &&
+        authVM?.currentUser != null &&
+        authVM!.currentUser!.id == offer.usuarioId;
 
     // Si ExchangeViewModel tiene una actualización de estado en vivo para esta oferta
     final proposal = exchangeVM?.currentProposal;
@@ -674,14 +558,58 @@ class _OfferDetailViewState extends State<OfferDetailView> {
                   _buildNeighborCard(offer.usuarioId, isDark),
                   const SizedBox(height: 28),
 
-                  // Botón de acción: Si la propuesta está aceptada, mostrar botón para Calificar al Vecino
-                  if (isProposalAccepted || offer.estado == 'aceptada') ...[
+                  // Botón de acción: Si es publicación propia, mostrar aviso informativo;
+                  // si la propuesta está aceptada, permitir calificar; si no, proponer intercambio.
+                  if (isOwnOffer) ...[
+                    Container(
+                      key: const Key('own_offer_info_card'),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.teal.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.teal.shade700),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Esta es tu propia publicación. Aquí aparecerán las propuestas que recibas de otros vecinos.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.teal.shade900,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (isProposalAccepted || offer.estado == 'aceptada') ...[
                     CustomButton(
                       key: const Key('rate_user_button'),
                       text: 'Calificar al Vecino',
                       icon: const Icon(Icons.star_rounded),
                       backgroundColor: Colors.amber.shade700,
                       onPressed: () => _showRatingModal(context, offer),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      key: const Key('open_rate_user_view_button'),
+                      onPressed: () {
+                        Navigator.of(context).pushNamed(
+                          RateUserView.routeName,
+                          arguments: RateUserArgs(
+                            targetUserId: offer.usuarioId,
+                            targetUserName: 'Vecino de Dolores Hidalgo',
+                            exchangeId: proposal?.id,
+                            offerTitle: offer.titulo,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.rate_review_outlined),
+                      label: const Text('Abrir pantalla completa de calificación'),
                     ),
                   ] else ...[
                     // Botón principal de acción: "Proponer Intercambio"
@@ -698,6 +626,38 @@ class _OfferDetailViewState extends State<OfferDetailView> {
                           : AppColors.secondary,
                       onPressed: () => _showProposeExchangeModal(context, offer),
                     ),
+                    if (offer.estaEnPropuesta) ...[
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        key: const Key('review_agreement_button'),
+                        onPressed: () {
+                          final activeProposal = proposal ??
+                              ExchangeEntity(
+                                id: 'prop-${offer.id}',
+                                offerId: offer.id,
+                                usuarioProponenteId:
+                                    context.read<AuthViewModel?>()?.currentUser?.id ??
+                                        'usr-proponente',
+                                usuarioReceptorId: offer.usuarioId,
+                                modalidad: offer.modalidad,
+                                propuesta: offer.loQueBusca ??
+                                    'Propuesta de intercambio sobre ${offer.titulo}',
+                                montoEfectivo: offer.precioEstimado,
+                                estado: 'pendiente_aceptacion',
+                                fechaCreacion: DateTime.now(),
+                              );
+                          Navigator.of(context).pushNamed(
+                            ExchangeConfirmationView.routeName,
+                            arguments: ExchangeConfirmationArgs(
+                              offer: offer,
+                              proposal: activeProposal,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.fact_check_outlined),
+                        label: const Text('Revisar / Confirmar Acuerdo'),
+                      ),
+                    ],
                   ],
                   const SizedBox(height: 20),
                 ],

@@ -7,9 +7,11 @@ import 'data/datasources/local/auth_local_datasource.dart';
 import 'data/datasources/remote/auth_remote_datasource.dart';
 import 'data/datasources/remote/exchange_remote_datasource.dart';
 import 'data/datasources/remote/offers_remote_datasource.dart';
+import 'data/datasources/remote/ratings_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/exchange_repository_impl.dart';
 import 'data/repositories/offer_repository_impl.dart';
+import 'data/repositories/ratings_repository_impl.dart';
 import 'data/repositories/user_repository_impl.dart';
 import 'domain/models/offer_entity.dart';
 import 'domain/usecases/get_session_usecase.dart';
@@ -25,7 +27,9 @@ import 'presentation/viewmodels/feed_viewmodel.dart';
 import 'presentation/views/auth/login_view.dart';
 import 'presentation/views/auth/register_view.dart';
 import 'presentation/views/exchange/create_offer_view.dart';
+import 'presentation/views/exchange/exchange_confirmation_view.dart';
 import 'presentation/views/exchange/offer_detail_view.dart';
+import 'presentation/views/exchange/rate_user_view.dart';
 import 'presentation/views/feed/feed_view.dart';
 
 Future<void> main() async {
@@ -87,7 +91,16 @@ Future<void> main() async {
   );
 
   final userRepository = UserRepositoryImpl();
-  final rateUserUseCase = RateUserUseCase(userRepository);
+  final ratingsRemoteDataSource = supabaseInitialized
+      ? SupabaseRatingsRemoteDataSource()
+      : MockRatingsRemoteDataSource();
+  final ratingsRepository = RatingsRepositoryImpl(
+    remoteDataSource: ratingsRemoteDataSource,
+  );
+  final rateUserUseCase = RateUserUseCase(
+    userRepository,
+    ratingsRepository: ratingsRepository,
+  );
 
   final exchangeViewModel = ExchangeViewModel(
     proposeExchangeUseCase: proposeExchangeUseCase,
@@ -139,16 +152,67 @@ class _SwappiaAppState extends State<SwappiaApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: _themeMode,
-      routes: {
-        LoginView.routeName: (context) => const LoginView(),
-        RegisterView.routeName: (context) => const RegisterView(),
-        FeedView.routeName: (context) => const FeedView(),
-        CreateOfferView.routeName: (context) => const CreateOfferView(),
-        OfferDetailView.routeName: (context) {
-          final offer =
-              ModalRoute.of(context)?.settings.arguments as OfferEntity?;
-          return OfferDetailView(offer: offer);
-        },
+      onGenerateRoute: (settings) {
+        Widget page;
+        switch (settings.name) {
+          case LoginView.routeName:
+            page = const LoginView();
+            break;
+          case RegisterView.routeName:
+            page = const RegisterView();
+            break;
+          case FeedView.routeName:
+            page = const FeedView();
+            break;
+          case CreateOfferView.routeName:
+            page = const CreateOfferView();
+            break;
+          case OfferDetailView.routeName:
+            final offer = settings.arguments as OfferEntity?;
+            page = OfferDetailView(offer: offer);
+            break;
+          case ExchangeConfirmationView.routeName:
+            final args = settings.arguments as ExchangeConfirmationArgs;
+            page = ExchangeConfirmationView(
+              offer: args.offer,
+              proposal: args.proposal,
+              counterpartName: args.counterpartName,
+            );
+            break;
+          case RateUserView.routeName:
+            final args = settings.arguments as RateUserArgs;
+            page = RateUserView(
+              targetUserId: args.targetUserId,
+              targetUserName: args.targetUserName,
+              exchangeId: args.exchangeId,
+              offerTitle: args.offerTitle,
+            );
+            break;
+          default:
+            return null;
+        }
+
+        return PageRouteBuilder(
+          settings: settings,
+          transitionDuration: const Duration(milliseconds: 240),
+          pageBuilder: (_, __, ___) => page,
+          transitionsBuilder: (_, animation, __, child) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.03),
+                  end: Offset.zero,
+                ).animate(curved),
+                child: child,
+              ),
+            );
+          },
+        );
       },
       home: Consumer<AuthViewModel>(
         builder: (context, auth, _) {
@@ -224,12 +288,18 @@ class _SwappiaAppState extends State<SwappiaApp> {
                 remoteDataSource: MockOffersRemoteDataSource(),
               );
               final userRepo = UserRepositoryImpl();
+              final ratingsRepo = RatingsRepositoryImpl(
+                remoteDataSource: MockRatingsRemoteDataSource(),
+              );
               return ExchangeViewModel(
                 proposeExchangeUseCase: ProposeExchangeUseCase(
                   exchangeRepository: exRepo,
                   offerRepository: offRepo,
                 ),
-                rateUserUseCase: RateUserUseCase(userRepo),
+                rateUserUseCase: RateUserUseCase(
+                  userRepo,
+                  ratingsRepository: ratingsRepo,
+                ),
                 exchangeRepository: exRepo,
               );
             },

@@ -1,4 +1,6 @@
+import '../models/rating_entity.dart';
 import '../models/user_entity.dart';
+import '../repositories/ratings_repository.dart';
 import '../repositories/user_repository.dart';
 
 /// Caso de uso en la capa de dominio para procesar el envío de reseñas y calificaciones a vecinos.
@@ -6,11 +8,15 @@ import '../repositories/user_repository.dart';
 /// 1. Calificación numérica válida entre 1.0 y 5.0 estrellas.
 /// 2. Un usuario no puede calificarse a sí mismo.
 /// 3. El usuario destino debe existir en el sistema.
-/// 4. Recalcula el promedio acumulado ponderado y actualiza el contador de calificaciones.
+/// 4. Persiste la evaluación en [RatingsRepository] (si está configurado) y actualiza el promedio.
 class RateUserUseCase {
   final UserRepository _userRepository;
+  final RatingsRepository? _ratingsRepository;
 
-  RateUserUseCase(this._userRepository);
+  RateUserUseCase(
+    this._userRepository, {
+    RatingsRepository? ratingsRepository,
+  }) : _ratingsRepository = ratingsRepository;
 
   /// Ejecuta la calificación de un vecino tras concretar o aceptar un intercambio.
   /// Retorna la entidad del usuario actualizado con su nuevo promedio y total.
@@ -19,6 +25,7 @@ class RateUserUseCase {
     required String reviewerUserId,
     required double rating,
     String? comment,
+    String? exchangeId,
   }) async {
     // 1. Validar que la calificación esté dentro del rango 1.0 - 5.0
     if (rating < 1.0 || rating > 5.0) {
@@ -52,7 +59,21 @@ class RateUserUseCase {
     // Redondear a un decimal
     final newAverage = double.parse(rawAverage.toStringAsFixed(1));
 
-    // 5. Persistir en repositorio
+    // 5. Registrar en RatingsRepository si está disponible y actualizar perfil
+    if (_ratingsRepository != null) {
+      await _ratingsRepository!.submitRating(
+        RatingEntity(
+          id: 'rat_${DateTime.now().millisecondsSinceEpoch}',
+          evaluadorId: reviewerUserId.trim(),
+          evaluadoId: targetUserId.trim(),
+          intercambioId: exchangeId,
+          estrellas: rating.round().clamp(1, 5),
+          comentario: comment,
+          fechaCreacion: DateTime.now(),
+        ),
+      );
+    }
+
     await _userRepository.updateRating(
       userId: targetUserId.trim(),
       nuevaCalificacionAcumulada: newAverage,
