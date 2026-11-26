@@ -1,28 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/constants/dolores_hidalgo_constants.dart';
+import '../../../core/services/postal_code_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/postal_code_location_selector.dart';
 import '../../widgets/status_banner.dart';
 import '../feed/feed_view.dart';
 import 'login_view.dart';
 
 /// Vista de registro vecinal (RegisterView) para Swappia.
-/// Permite capturar nombre, telefono de 10 digitos, correo, colonia/comunidad
-/// de Dolores Hidalgo y credenciales seguras.
+/// Permite capturar nombre, telefono de 10 digitos, correo, ubicacion
+/// mediante API de codigos postales (CP -> Municipio -> Colonia) y credenciales seguras.
 class RegisterView extends StatefulWidget {
   static const routeName = '/register';
 
   final VoidCallback? onNavigateToLogin;
   final Future<void> Function(Map<String, dynamic> data)? onRegisterSubmit;
+  final PostalCodeService? postalCodeService;
 
   const RegisterView({
     super.key,
     this.onNavigateToLogin,
     this.onRegisterSubmit,
+    this.postalCodeService,
   });
 
   @override
@@ -35,10 +38,12 @@ class _RegisterViewState extends State<RegisterView> {
   final _nombreController = TextEditingController();
   final _telefonoController = TextEditingController();
   final _emailController = TextEditingController();
-  final _coloniaController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  String? _selectedCodigoPostal;
+  String? _selectedMunicipio;
+  String? _selectedColonia;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -47,7 +52,6 @@ class _RegisterViewState extends State<RegisterView> {
     _nombreController.dispose();
     _telefonoController.dispose();
     _emailController.dispose();
-    _coloniaController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -74,13 +78,6 @@ class _RegisterViewState extends State<RegisterView> {
     }
     if (!v.contains('@') || !v.contains('.')) {
       return 'Ingrese un correo electrónico válido';
-    }
-    return null;
-  }
-
-  String? _validateColonia(String? v) {
-    if (v == null || v.trim().isEmpty) {
-      return 'Indique su colonia o comunidad';
     }
     return null;
   }
@@ -114,7 +111,9 @@ class _RegisterViewState extends State<RegisterView> {
       try {
         await widget.onRegisterSubmit!({
           'nombre': _nombreController.text.trim(),
-          'colonia': _coloniaController.text.trim(),
+          'codigoPostal': _selectedCodigoPostal ?? '',
+          'municipio': _selectedMunicipio ?? '',
+          'colonia': (_selectedColonia ?? '').trim(),
           'telefono': _telefonoController.text.trim(),
           'email': _emailController.text.trim(),
           'password': _passwordController.text,
@@ -142,7 +141,7 @@ class _RegisterViewState extends State<RegisterView> {
       authViewModel.clearError();
       final success = await authViewModel.register(
         nombre: _nombreController.text.trim(),
-        coloniaComunidad: _coloniaController.text.trim(),
+        coloniaComunidad: (_selectedColonia ?? '').trim(),
         telefono: _telefonoController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -155,71 +154,6 @@ class _RegisterViewState extends State<RegisterView> {
         );
       }
     }
-  }
-
-  void _showColoniasSelector() {
-    showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          builder: (context, scrollController) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_city_rounded, color: AppColors.primary),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Colonias de Dolores Hidalgo',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: DoloresHidalgoConstants.coloniasYComunidades.length,
-                    itemBuilder: (context, index) {
-                      final item = DoloresHidalgoConstants.coloniasYComunidades[index];
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.location_on_outlined, size: 18),
-                        title: Text(item, style: const TextStyle(fontSize: 14)),
-                        onTap: () => Navigator.of(ctx).pop(item),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).then((selected) {
-      if (selected != null && mounted) {
-        setState(() {
-          _coloniaController.text = selected;
-        });
-      }
-    });
   }
 
   @override
@@ -332,21 +266,24 @@ class _RegisterViewState extends State<RegisterView> {
                     ),
                     const SizedBox(height: 6),
 
-                    // Campo 3: Colonia / Comunidad
-                    CustomTextField(
-                      key: const Key('register_colonia_field'),
-                      controller: _coloniaController,
-                      label: 'Colonia o comunidad (Dolores Hidalgo)',
-                      hint: 'Ej. Centro, La Lindavista, El Llanito...',
-                      contentPadding: fieldPadding,
-                      textInputAction: TextInputAction.next,
-                      prefixIcon: const Icon(Icons.location_on_outlined, size: 18),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 18),
-                        tooltip: 'Ver lista de colonias',
-                        onPressed: _showColoniasSelector,
-                      ),
-                      validator: _validateColonia,
+                    // Campo 3: Ubicacion en cascada via API (Codigo Postal -> Municipio -> Colonia)
+                    PostalCodeLocationSelector(
+                      postalCodeService: widget.postalCodeService,
+                      initialCodigoPostal: _selectedCodigoPostal,
+                      initialMunicipio: _selectedMunicipio,
+                      initialColonia: _selectedColonia,
+                      cpDropdownKey: const Key('register_cp_dropdown'),
+                      municipioDropdownKey: const Key('register_municipio_dropdown'),
+                      coloniaDropdownKey: const Key('register_colonia_dropdown'),
+                      coloniaLabel: 'Colonia o comunidad (Dolores Hidalgo)',
+                      compact: true,
+                      onLocationChanged: ({codigoPostal, municipio, colonia}) {
+                        setState(() {
+                          _selectedCodigoPostal = codigoPostal;
+                          _selectedMunicipio = municipio;
+                          _selectedColonia = colonia;
+                        });
+                      },
                     ),
                     const SizedBox(height: 6),
 

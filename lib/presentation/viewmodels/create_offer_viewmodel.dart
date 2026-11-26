@@ -32,6 +32,8 @@ class CreateOfferViewModel extends ChangeNotifier {
 
   // Estados seleccionables del formulario
   String _categoria = '';
+  String _codigoPostal = '';
+  String _municipio = '';
   String _coloniaComunidad = '';
   String _modalidad = 'trueque'; // 'trueque', 'dinero', 'mixto'
   String? _selectedFotoPath;
@@ -50,6 +52,8 @@ class CreateOfferViewModel extends ChangeNotifier {
   OfferEntity? get createdOffer => _createdOffer;
 
   String get categoria => _categoria;
+  String get codigoPostal => _codigoPostal;
+  String get municipio => _municipio;
   String get coloniaComunidad => _coloniaComunidad;
   String get modalidad => _modalidad;
   String? get selectedFotoPath => _selectedFotoPath;
@@ -58,6 +62,16 @@ class CreateOfferViewModel extends ChangeNotifier {
   void setCategoria(String nuevaCategoria) {
     _categoria = nuevaCategoria;
     categoriaController.text = nuevaCategoria;
+    notifyListeners();
+  }
+
+  void setCodigoPostal(String nuevoCp) {
+    _codigoPostal = nuevoCp;
+    notifyListeners();
+  }
+
+  void setMunicipio(String nuevoMunicipio) {
+    _municipio = nuevoMunicipio;
     notifyListeners();
   }
 
@@ -89,6 +103,8 @@ class CreateOfferViewModel extends ChangeNotifier {
     precioEstimadoController.clear();
     coloniaController.clear();
     _categoria = '';
+    _codigoPostal = '';
+    _municipio = '';
     _coloniaComunidad = '';
     _modalidad = 'trueque';
     _selectedFotoPath = null;

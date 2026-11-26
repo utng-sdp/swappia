@@ -13,7 +13,12 @@ class FeedViewModel extends ChangeNotifier {
   List<OfferEntity> _allOffers = [];
   List<OfferEntity> _filteredOffers = [];
   String _searchQuery = '';
+  String? _selectedCategoria;
+  String? _selectedColonia;
+  String? _selectedCodigoPostal;
+  String? _selectedMunicipio;
   bool _isLoading = false;
+  bool _isRefreshing = false;
   String? _errorMessage;
   Timer? _debounceTimer;
 
@@ -28,16 +33,37 @@ class FeedViewModel extends ChangeNotifier {
   List<OfferEntity> get offers => _filteredOffers;
   List<OfferEntity> get allOffers => _allOffers;
   String get searchQuery => _searchQuery;
+  String? get selectedCategoria => _selectedCategoria;
+  String? get selectedColonia => _selectedColonia;
+  String? get selectedCodigoPostal => _selectedCodigoPostal;
+  String? get selectedMunicipio => _selectedMunicipio;
   bool get isLoading => _isLoading;
+  bool get isRefreshing => _isRefreshing;
   bool get hasError => _errorMessage != null;
   String? get errorMessage => _errorMessage;
   int get count => _filteredOffers.length;
   bool get hasActiveSearch => _searchQuery.trim().isNotEmpty;
+  bool get hasActiveFilters =>
+      (_selectedCategoria != null && _selectedCategoria!.isNotEmpty) ||
+      (_selectedColonia != null && _selectedColonia!.isNotEmpty) ||
+      (_selectedCodigoPostal != null && _selectedCodigoPostal!.isNotEmpty);
+
+  /// Devuelve todas las ofertas publicadas por un usuario específico.
+  List<OfferEntity> offersByUser(String userId) {
+    final cleanId = userId.trim();
+    if (cleanId.isEmpty) return const [];
+    return _allOffers.where((o) => o.usuarioId == cleanId).toList();
+  }
 
   /// Carga las ofertas desde el repositorio. Si el repositorio no tiene datos,
   /// inicializa publicaciones de ejemplo de Dolores Hidalgo para permitir interacción inmediata.
   Future<void> loadOffers({String? colonia, bool refresh = false}) async {
-    _isLoading = true;
+    final bool softRefresh = refresh && _allOffers.isNotEmpty;
+    if (softRefresh) {
+      _isRefreshing = true;
+    } else {
+      _isLoading = true;
+    }
     _errorMessage = null;
     notifyListeners();
 
@@ -57,11 +83,28 @@ class FeedViewModel extends ChangeNotifier {
       _allOffers = loaded;
       _applyFilter();
       _isLoading = false;
+      _isRefreshing = false;
       notifyListeners();
     } catch (e) {
       _errorMessage = 'Error al cargar ofertas: ${e.toString()}';
       _isLoading = false;
+      _isRefreshing = false;
       notifyListeners();
+    }
+  }
+
+  /// Desactiva o elimina una oferta y la remueve de la lista local.
+  Future<bool> deleteOffer(String offerId) async {
+    try {
+      await _offerRepository.deleteOffer(offerId);
+      _allOffers.removeWhere((o) => o.id == offerId);
+      _applyFilter();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Error al eliminar la oferta: ${e.toString()}';
+      notifyListeners();
+      return false;
     }
   }
 
@@ -103,6 +146,40 @@ class FeedViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Filtra por categoría seleccionada en el Feed.
+  void setCategoryFilter(String? categoria) {
+    _selectedCategoria =
+        (categoria == null || categoria.trim().isEmpty) ? null : categoria.trim();
+    _applyFilter();
+    notifyListeners();
+  }
+
+  /// Filtra por ubicación en cascada (C.P., Municipio, Colonia).
+  void setLocationFilter({
+    String? codigoPostal,
+    String? municipio,
+    String? colonia,
+  }) {
+    _selectedCodigoPostal =
+        (codigoPostal == null || codigoPostal.trim().isEmpty) ? null : codigoPostal.trim();
+    _selectedMunicipio =
+        (municipio == null || municipio.trim().isEmpty) ? null : municipio.trim();
+    _selectedColonia =
+        (colonia == null || colonia.trim().isEmpty) ? null : colonia.trim();
+    _applyFilter();
+    notifyListeners();
+  }
+
+  /// Restablece filtros de categoría y ubicación.
+  void clearFilters() {
+    _selectedCategoria = null;
+    _selectedColonia = null;
+    _selectedCodigoPostal = null;
+    _selectedMunicipio = null;
+    _applyFilter();
+    notifyListeners();
+  }
+
   /// Agrega una nueva oferta en la parte superior del feed (ej. recién creada)
   void addOffer(OfferEntity offer) {
     _allOffers.insert(0, offer);
@@ -120,15 +197,33 @@ class FeedViewModel extends ChangeNotifier {
     }
   }
 
-  /// Aplica el filtro de búsqueda sobre `_allOffers`
+  /// Aplica el filtro de búsqueda, categoría y colonia sobre `_allOffers`
   void _applyFilter() {
+    Iterable<OfferEntity> results = _allOffers;
+
+    if (_selectedCategoria != null && _selectedCategoria!.isNotEmpty) {
+      final catLower = _selectedCategoria!.toLowerCase();
+      results = results.where(
+        (offer) => offer.categoria.toLowerCase() == catLower,
+      );
+    }
+
+    if (_selectedColonia != null && _selectedColonia!.isNotEmpty) {
+      final colLower = _selectedColonia!.toLowerCase();
+      results = results.where(
+        (offer) =>
+            offer.coloniaComunidad.toLowerCase().contains(colLower) ||
+            colLower.contains(offer.coloniaComunidad.toLowerCase()),
+      );
+    }
+
     if (_searchQuery.isEmpty) {
-      _filteredOffers = List.from(_allOffers);
+      _filteredOffers = results.toList();
       return;
     }
 
     final queryLower = _searchQuery.toLowerCase();
-    _filteredOffers = _allOffers.where((offer) {
+    _filteredOffers = results.where((offer) {
       final matchTitulo = offer.titulo.toLowerCase().contains(queryLower);
       final matchDescripcion =
           offer.descripcion.toLowerCase().contains(queryLower);

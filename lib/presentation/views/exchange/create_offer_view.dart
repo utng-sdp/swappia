@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/constants/dolores_hidalgo_constants.dart';
+import '../../../core/services/postal_code_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../viewmodels/auth_viewmodel.dart';
 import '../../viewmodels/create_offer_viewmodel.dart';
+import '../../viewmodels/feed_viewmodel.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../widgets/postal_code_location_selector.dart';
 import '../../widgets/status_banner.dart';
 
 /// Tipo de publicación: Ofrezco (servicio o bien) vs Busco (necesidad comunitaria)
@@ -46,12 +48,14 @@ class CreateOfferView extends StatefulWidget {
   final ImagePicker? imagePicker;
   final Future<void> Function(Map<String, dynamic> offerData)? onSubmitOffer;
   final VoidCallback? onSuccess;
+  final PostalCodeService? postalCodeService;
 
   const CreateOfferView({
     super.key,
     this.imagePicker,
     this.onSubmitOffer,
     this.onSuccess,
+    this.postalCodeService,
   });
 
   @override
@@ -80,8 +84,8 @@ class _CreateOfferViewState extends State<CreateOfferView> {
     final user = authViewModel?.currentUser;
 
     if (user != null && createOfferVM != null && createOfferVM.coloniaComunidad.isEmpty) {
-      if (DoloresHidalgoConstants.coloniasYComunidades.contains(user.coloniaComunidad)) {
-        createOfferVM.setColoniaComunidad(user.coloniaComunidad);
+      if (user.coloniaComunidad.trim().isNotEmpty) {
+        createOfferVM.setColoniaComunidad(user.coloniaComunidad.trim());
       }
     }
   }
@@ -166,6 +170,11 @@ class _CreateOfferViewState extends State<CreateOfferView> {
     );
 
     if (mounted && success) {
+      final feedVM = context.read<FeedViewModel?>();
+      if (createOfferVM.createdOffer != null && feedVM != null) {
+        feedVM.addOffer(createOfferVM.createdOffer!);
+      }
+
       setState(() {
         _pickedImage = null;
       });
@@ -176,9 +185,11 @@ class _CreateOfferViewState extends State<CreateOfferView> {
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 8),
-              Text(
-                createOfferVM.successMessage ?? '¡Oferta publicada exitosamente!',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  createOfferVM.successMessage ?? '¡Oferta publicada exitosamente!',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -246,12 +257,24 @@ class _CreateOfferViewState extends State<CreateOfferView> {
                   ),
 
                 // Banner de éxito tras la confirmación
-                if (vm.isSuccess && vm.successMessage != null)
+                if (vm.isSuccess && vm.successMessage != null) ...[
                   StatusBanner(
                     message: vm.successMessage!,
                     type: StatusBannerType.success,
                     textKey: const Key('create_offer_success_banner'),
                   ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      key: const Key('go_to_feed_after_publish_button'),
+                      onPressed: () {
+                        Navigator.of(context).maybePop(vm.createdOffer);
+                      },
+                      icon: const Icon(Icons.visibility_outlined, size: 18),
+                      label: const Text('Ver publicación en el Feed'),
+                    ),
+                  ),
+                ],
 
                 // Selector Toggle Interactivo: Ofrezco vs Busco (Issue #13 Task 1)
                 _buildOfferTypeToggle(colorScheme, isDark),
@@ -338,45 +361,25 @@ class _CreateOfferViewState extends State<CreateOfferView> {
                 _buildPhotoSection(context, isDark, hasPhoto, currentPhotoPath, vm),
                 const SizedBox(height: 16),
 
-                // 5. Colonia o Comunidad de Dolores Hidalgo
+                // 5. Ubicación en cascada (Código Postal -> Municipio -> Colonia)
                 const Text(
-                  'Colonia o Comunidad de Dolores Hidalgo *',
+                  'Ubicación (Código Postal, Municipio y Colonia) *',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
-                const SizedBox(height: 6),
-                InputDecorator(
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.location_on_outlined),
-                    filled: true,
-                    fillColor: theme.colorScheme.surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      key: const Key('offer_colonia_dropdown'),
-                      value: DoloresHidalgoConstants.coloniasYComunidades
-                              .contains(vm.coloniaComunidad)
-                          ? vm.coloniaComunidad
-                          : null,
-                      hint: const Text('Selecciona colonia o comunidad'),
-                      isExpanded: true,
-                      items: DoloresHidalgoConstants.coloniasYComunidades
-                          .map((col) => DropdownMenuItem(
-                                value: col,
-                                child: Text(col, overflow: TextOverflow.ellipsis),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) vm.setColoniaComunidad(val);
-                      },
-                    ),
-                  ),
+                const SizedBox(height: 8),
+                PostalCodeLocationSelector(
+                  postalCodeService: widget.postalCodeService,
+                  initialCodigoPostal: vm.codigoPostal,
+                  initialMunicipio: vm.municipio,
+                  initialColonia: vm.coloniaComunidad,
+                  cpDropdownKey: const Key('offer_cp_dropdown'),
+                  municipioDropdownKey: const Key('offer_municipio_dropdown'),
+                  coloniaDropdownKey: const Key('offer_colonia_dropdown'),
+                  onLocationChanged: ({codigoPostal, municipio, colonia}) {
+                    vm.setCodigoPostal(codigoPostal ?? '');
+                    vm.setMunicipio(municipio ?? '');
+                    vm.setColoniaComunidad(colonia ?? '');
+                  },
                 ),
                 const SizedBox(height: 20),
 
