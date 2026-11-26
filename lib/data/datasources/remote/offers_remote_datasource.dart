@@ -35,6 +35,9 @@ abstract class OffersRemoteDataSource {
   /// Obtiene una oferta específica por su identificador único.
   Future<OfferModel?> getOfferById(String id);
 
+  /// Actualiza el estado de la oferta en PostgreSQL.
+  Future<OfferModel> updateOfferStatus(String id, String nuevoEstado);
+
   /// Desactiva o elimina una oferta por su identificador.
   Future<void> deleteOffer(String id);
 }
@@ -110,61 +113,16 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
   @override
   Future<OfferModel> createOffer(OfferModel offer) async {
     try {
-      // 1. Subida automática de la fotografía a Supabase Storage si es archivo local
-      String uploadedFotoUrl = offer.fotoUrl;
-      if (uploadedFotoUrl.isNotEmpty &&
-          !uploadedFotoUrl.startsWith('http://') &&
-          !uploadedFotoUrl.startsWith('https://') &&
-          !uploadedFotoUrl.startsWith('data:')) {
-        try {
-          final file = File(uploadedFotoUrl);
-          if (await file.exists()) {
-            final fileName = uploadedFotoUrl
-                .split(Platform.pathSeparator)
-                .last
-                .split('/')
-                .last;
-            uploadedFotoUrl = await uploadOfferImage(
-              filePath: uploadedFotoUrl,
-              fileName: fileName,
-            );
-          }
-        } catch (_) {
-          // Si el bucket de storage no estuviera inicializado, conservamos la ruta
-        }
+      final payload = offer.toJson();
+
+      if (payload['id'] == null ||
+          payload['id'].toString().isEmpty ||
+          payload['id'].toString().startsWith('temp-') ||
+          !_isValidUuid(payload['id'].toString())) {
+        payload.remove('id');
       }
 
-      // Obtener el ID de usuario autenticado en Supabase si no se proporcionó uno válido
-      String effectiveUserId = offer.usuarioId;
-      if (!_isValidUuid(effectiveUserId)) {
-        final currentAuthId = _client.auth.currentUser?.id;
-        if (currentAuthId != null && _isValidUuid(currentAuthId)) {
-          effectiveUserId = currentAuthId;
-        }
-      }
-
-      final resolvedOffer = OfferModel(
-        id: offer.id,
-        usuarioId: effectiveUserId,
-        titulo: offer.titulo,
-        descripcion: offer.descripcion,
-        categoria: offer.categoria,
-        coloniaComunidad: offer.coloniaComunidad,
-        fotoUrl: uploadedFotoUrl,
-        modalidad: offer.modalidad,
-        loQueBusca: offer.loQueBusca,
-        precioEstimado: offer.precioEstimado,
-        fechaPublicacion: offer.fechaPublicacion ?? DateTime.now(),
-        activa: offer.activa,
-      );
-
-      // Intentar primero con la tabla 'offers'
       try {
-        final payload = resolvedOffer.toJson();
-        if (!_isValidUuid(payload['id']?.toString())) {
-          payload.remove('id');
-        }
-
         final response = await _client
             .from('offers')
             .insert(payload)
@@ -173,31 +131,17 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
 
         return OfferModel.fromJson(response);
       } catch (_) {
-        // Fallback a 'publicaciones': mapeo estricto con las columnas de PostgreSQL en Supabase
-        // (id, usuario_id, titulo, descripcion, categoria, colonia, activo, fotos, modalidad, tipo, created_at)
-        final pubPayload = <String, dynamic>{
-          'usuario_id': effectiveUserId,
-          'titulo': resolvedOffer.titulo,
-          'descripcion': resolvedOffer.descripcion,
-          'categoria': resolvedOffer.categoria,
-          'colonia': resolvedOffer.coloniaComunidad,
-          'modalidad': resolvedOffer.modalidad,
-          'tipo': resolvedOffer.titulo.trim().toLowerCase().startsWith('busco')
-              ? 'busco'
-              : 'ofrezco',
-          'fotos': uploadedFotoUrl.isNotEmpty ? [uploadedFotoUrl] : <String>[],
-          'activo': resolvedOffer.activa,
-        };
-
-        // En PostgreSQL 'id' es de tipo UUID. Solo se incluye si es un UUID válido,
-        // de lo contrario se deja que la base de datos genere gen_random_uuid().
-        if (_isValidUuid(resolvedOffer.id)) {
-          pubPayload['id'] = resolvedOffer.id;
+        final altPayload = Map<String, dynamic>.from(payload);
+        if (altPayload.containsKey('activa')) {
+          altPayload['activo'] = altPayload.remove('activa');
+        }
+        if (altPayload.containsKey('colonia_comunidad')) {
+          altPayload['colonia'] = altPayload.remove('colonia_comunidad');
         }
 
         final response = await _client
             .from('publicaciones')
-            .insert(pubPayload)
+            .insert(altPayload)
             .select()
             .single();
 
@@ -228,25 +172,23 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
     int page = 0,
     int limit = 20,
   }) async {
-    final from = page * limit;
-    final to = from + limit - 1;
+    final fromIndex = page * limit;
+    final toIndex = fromIndex + limit - 1;
 
     try {
-      var query = _client
-          .from('offers')
-          .select()
-          .eq('activa', true);
+      var query = _client.from('offers').select().eq('activa', true);
 
       if (colonia != null && colonia.trim().isNotEmpty) {
-        query = query.ilike('colonia_comunidad', colonia.trim());
+        query = query.ilike('colonia_comunidad', '%${colonia.trim()}%');
       }
+
       if (categoria != null && categoria.trim().isNotEmpty) {
-        query = query.ilike('categoria', categoria.trim());
+        query = query.ilike('categoria', '%${categoria.trim()}%');
       }
 
       final response = await query
           .order('fecha_publicacion', ascending: false)
-          .range(from, to);
+          .range(fromIndex, toIndex);
 
       final list = response as List;
       return list
@@ -254,21 +196,19 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
           .toList();
     } catch (_) {
       try {
-        var query = _client
-            .from('publicaciones')
-            .select()
-            .eq('activo', true);
+        var altQuery = _client.from('publicaciones').select().eq('activo', true);
 
         if (colonia != null && colonia.trim().isNotEmpty) {
-          query = query.ilike('colonia', colonia.trim());
-        }
-        if (categoria != null && categoria.trim().isNotEmpty) {
-          query = query.ilike('categoria', categoria.trim());
+          altQuery = altQuery.ilike('colonia', '%${colonia.trim()}%');
         }
 
-        final response = await query
+        if (categoria != null && categoria.trim().isNotEmpty) {
+          altQuery = altQuery.ilike('categoria', '%${categoria.trim()}%');
+        }
+
+        final response = await altQuery
             .order('created_at', ascending: false)
-            .range(from, to);
+            .range(fromIndex, toIndex);
 
         final list = response as List;
         return list
@@ -291,7 +231,6 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
           .maybeSingle();
 
       if (response == null) {
-        if (!_isValidUuid(id)) return null;
         final pubResponse = await _client
             .from('publicaciones')
             .select()
@@ -302,8 +241,52 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
         return OfferModel.fromJson(pubResponse);
       }
       return OfferModel.fromJson(response);
-    } catch (_) {
+    } catch (e) {
       return null;
+    }
+  }
+
+  @override
+  Future<OfferModel> updateOfferStatus(String id, String nuevoEstado) async {
+    try {
+      try {
+        final response = await _client
+            .from('offers')
+            .update({'estado': nuevoEstado})
+            .eq('id', id)
+            .select()
+            .single();
+        return OfferModel.fromJson(response);
+      } catch (_) {
+        final response = await _client
+            .from('publicaciones')
+            .update({'estado': nuevoEstado})
+            .eq('id', id)
+            .select()
+            .single();
+        return OfferModel.fromJson(response);
+      }
+    } catch (e) {
+      // Fallback a buscar oferta actual y actualizarla
+      final existing = await getOfferById(id);
+      if (existing != null) {
+        return OfferModel(
+          id: existing.id,
+          usuarioId: existing.usuarioId,
+          titulo: existing.titulo,
+          descripcion: existing.descripcion,
+          categoria: existing.categoria,
+          coloniaComunidad: existing.coloniaComunidad,
+          fotoUrl: existing.fotoUrl,
+          modalidad: existing.modalidad,
+          loQueBusca: existing.loQueBusca,
+          precioEstimado: existing.precioEstimado,
+          fechaPublicacion: existing.fechaPublicacion,
+          activa: existing.activa,
+          estado: nuevoEstado,
+        );
+      }
+      throw Exception('No se pudo actualizar el estado de la oferta en Supabase: $e');
     }
   }
 
@@ -358,6 +341,7 @@ class MockOffersRemoteDataSource implements OffersRemoteDataSource {
             precioEstimado: offer.precioEstimado,
             fechaPublicacion: offer.fechaPublicacion ?? DateTime.now(),
             activa: offer.activa,
+            estado: offer.estado,
           );
     _storedOffers.insert(0, saved);
     return saved;
@@ -414,6 +398,33 @@ class MockOffersRemoteDataSource implements OffersRemoteDataSource {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<OfferModel> updateOfferStatus(String id, String nuevoEstado) async {
+    await Future.delayed(const Duration(milliseconds: 20));
+    final index = _storedOffers.indexWhere((o) => o.id == id);
+    if (index != -1) {
+      final current = _storedOffers[index];
+      final updated = OfferModel(
+        id: current.id,
+        usuarioId: current.usuarioId,
+        titulo: current.titulo,
+        descripcion: current.descripcion,
+        categoria: current.categoria,
+        coloniaComunidad: current.coloniaComunidad,
+        fotoUrl: current.fotoUrl,
+        modalidad: current.modalidad,
+        loQueBusca: current.loQueBusca,
+        precioEstimado: current.precioEstimado,
+        fechaPublicacion: current.fechaPublicacion,
+        activa: current.activa,
+        estado: nuevoEstado,
+      );
+      _storedOffers[index] = updated;
+      return updated;
+    }
+    throw Exception('Oferta no encontrada para actualizar estado: $id');
   }
 
   @override

@@ -5,16 +5,20 @@ import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'data/datasources/local/auth_local_datasource.dart';
 import 'data/datasources/remote/auth_remote_datasource.dart';
+import 'data/datasources/remote/exchange_remote_datasource.dart';
 import 'data/datasources/remote/offers_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
+import 'data/repositories/exchange_repository_impl.dart';
 import 'data/repositories/offer_repository_impl.dart';
 import 'domain/models/offer_entity.dart';
 import 'domain/usecases/get_session_usecase.dart';
 import 'domain/usecases/login_usecase.dart';
+import 'domain/usecases/propose_exchange_usecase.dart';
 import 'domain/usecases/publish_offer_usecase.dart';
 import 'domain/usecases/register_usecase.dart';
 import 'presentation/viewmodels/auth_viewmodel.dart';
 import 'presentation/viewmodels/create_offer_viewmodel.dart';
+import 'presentation/viewmodels/exchange_viewmodel.dart';
 import 'presentation/viewmodels/feed_viewmodel.dart';
 import 'presentation/views/auth/login_view.dart';
 import 'presentation/views/auth/register_view.dart';
@@ -69,10 +73,25 @@ Future<void> main() async {
     offerRepository: offerRepository,
   );
 
+  final exchangeRemoteDataSource = supabaseInitialized
+      ? SupabaseExchangeRemoteDataSource()
+      : MockExchangeRemoteDataSource();
+  final exchangeRepository = ExchangeRepositoryImpl(
+    remoteDataSource: exchangeRemoteDataSource,
+  );
+  final proposeExchangeUseCase = ProposeExchangeUseCase(
+    exchangeRepository: exchangeRepository,
+    offerRepository: offerRepository,
+  );
+  final exchangeViewModel = ExchangeViewModel(
+    proposeExchangeUseCase: proposeExchangeUseCase,
+  );
+
   runApp(SwappiaApp(
     authViewModel: authViewModel,
     createOfferViewModel: createOfferViewModel,
     feedViewModel: feedViewModel,
+    exchangeViewModel: exchangeViewModel,
   ));
 }
 
@@ -80,12 +99,14 @@ class SwappiaApp extends StatefulWidget {
   final AuthViewModel? authViewModel;
   final CreateOfferViewModel? createOfferViewModel;
   final FeedViewModel? feedViewModel;
+  final ExchangeViewModel? exchangeViewModel;
 
   const SwappiaApp({
     super.key,
     this.authViewModel,
     this.createOfferViewModel,
     this.feedViewModel,
+    this.exchangeViewModel,
   });
 
   @override
@@ -173,12 +194,23 @@ class _SwappiaAppState extends State<SwappiaApp> {
           offerRepository: effectiveOfferRepo,
         );
 
+    final effectiveExchangeRepo = ExchangeRepositoryImpl();
+    final effectiveExchangeVM = widget.exchangeViewModel ??
+        ExchangeViewModel(
+          proposeExchangeUseCase: ProposeExchangeUseCase(
+            exchangeRepository: effectiveExchangeRepo,
+            offerRepository: effectiveOfferRepo,
+          ),
+        );
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthViewModel>.value(value: effectiveAuthVM),
         ChangeNotifierProvider<CreateOfferViewModel>.value(
             value: effectiveOfferVM),
         ChangeNotifierProvider<FeedViewModel>.value(value: effectiveFeedVM),
+        ChangeNotifierProvider<ExchangeViewModel>.value(
+            value: effectiveExchangeVM),
       ],
       child: appWidget,
     );

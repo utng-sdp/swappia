@@ -72,10 +72,8 @@ class OfferRepositoryImpl implements OfferRepository {
 
     final sorted = results.toList()
       ..sort((a, b) {
-        final dateA =
-            a.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final dateB =
-            b.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final dateA = a.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final dateB = b.fechaPublicacion ?? DateTime.fromMillisecondsSinceEpoch(0);
         return dateB.compareTo(dateA);
       });
 
@@ -96,11 +94,54 @@ class OfferRepositoryImpl implements OfferRepository {
       }
     }
     try {
-      final model = _inMemoryOffers.firstWhere((m) => m.id == id && m.activa);
+      final model = _inMemoryOffers.firstWhere((m) => m.id == id);
       return model.toEntity();
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<OfferEntity> updateOfferStatus(String id, String nuevoEstado) async {
+    if (_remoteDataSource != null) {
+      try {
+        final remoteModel =
+            await _remoteDataSource!.updateOfferStatus(id, nuevoEstado);
+        final index = _inMemoryOffers.indexWhere((m) => m.id == id);
+        if (index != -1) {
+          _inMemoryOffers[index] = remoteModel;
+        } else {
+          _inMemoryOffers.insert(0, remoteModel);
+        }
+        return remoteModel.toEntity();
+      } catch (_) {
+        // Fallback a memoria si la llamada remota falla
+      }
+    }
+
+    final index = _inMemoryOffers.indexWhere((m) => m.id == id);
+    if (index != -1) {
+      final current = _inMemoryOffers[index];
+      final updated = OfferModel(
+        id: current.id,
+        usuarioId: current.usuarioId,
+        titulo: current.titulo,
+        descripcion: current.descripcion,
+        categoria: current.categoria,
+        coloniaComunidad: current.coloniaComunidad,
+        fotoUrl: current.fotoUrl,
+        modalidad: current.modalidad,
+        loQueBusca: current.loQueBusca,
+        precioEstimado: current.precioEstimado,
+        fechaPublicacion: current.fechaPublicacion,
+        activa: current.activa,
+        estado: nuevoEstado,
+      );
+      _inMemoryOffers[index] = updated;
+      return updated.toEntity();
+    }
+
+    throw Exception('Oferta con id $id no encontrada para actualizar estado.');
   }
 
   @override

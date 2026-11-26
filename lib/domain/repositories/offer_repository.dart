@@ -22,6 +22,9 @@ abstract class OfferRepository {
   /// Obtiene el detalle de una oferta por su identificador unico.
   Future<OfferEntity?> getOfferById(String id);
 
+  /// Actualiza el estado de la oferta (ej. 'pendiente_aceptacion', 'en_propuesta', 'finalizada').
+  Future<OfferEntity> updateOfferStatus(String id, String nuevoEstado);
+
   /// Elimina o desactiva una oferta por su identificador.
   Future<void> deleteOffer(String id);
 }

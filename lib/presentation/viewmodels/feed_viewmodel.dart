@@ -110,6 +110,16 @@ class FeedViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Actualiza una oferta existente en el feed (ej. cuando cambia a "En propuesta")
+  void updateOffer(OfferEntity updatedOffer) {
+    final index = _allOffers.indexWhere((o) => o.id == updatedOffer.id);
+    if (index != -1) {
+      _allOffers[index] = updatedOffer;
+      _applyFilter();
+      notifyListeners();
+    }
+  }
+
   /// Aplica el filtro de búsqueda sobre `_allOffers`
   void _applyFilter() {
     if (_searchQuery.isEmpty) {
@@ -129,13 +139,16 @@ class FeedViewModel extends ChangeNotifier {
           offer.loQueBusca?.toLowerCase().contains(queryLower) ?? false;
       final matchModalidad =
           offer.modalidad.toLowerCase().contains(queryLower);
+      final matchEstado =
+          offer.estado.toLowerCase().contains(queryLower);
 
       return matchTitulo ||
           matchDescripcion ||
           matchCategoria ||
           matchColonia ||
           matchLoQueBusca ||
-          matchModalidad;
+          matchModalidad ||
+          matchEstado;
     }).toList();
   }
 
@@ -210,4 +223,3 @@ class FeedViewModel extends ChangeNotifier {
     super.dispose();
   }
 }
-

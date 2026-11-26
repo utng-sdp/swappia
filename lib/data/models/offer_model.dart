@@ -13,6 +13,7 @@ class OfferModel {
   final double? precioEstimado;
   final DateTime? fechaPublicacion;
   final bool activa;
+  final String estado;
 
   const OfferModel({
     required this.id,
@@ -27,6 +28,7 @@ class OfferModel {
     this.precioEstimado,
     this.fechaPublicacion,
     this.activa = true,
+    this.estado = 'disponible',
   });
 
   OfferEntity toEntity() {
@@ -43,6 +45,7 @@ class OfferModel {
       precioEstimado: precioEstimado,
       fechaPublicacion: fechaPublicacion,
       activa: activa,
+      estado: estado,
     );
   }
 
@@ -60,6 +63,7 @@ class OfferModel {
       precioEstimado: entity.precioEstimado,
       fechaPublicacion: entity.fechaPublicacion,
       activa: entity.activa,
+      estado: entity.estado,
     );
   }
 
@@ -81,14 +85,20 @@ class OfferModel {
     final rawActivo = json['activo'] ?? json['activa'];
     final bool isActiva = rawActivo == null ? true : (rawActivo == true || rawActivo == 1);
 
-    // 3. Manejo de colonia: 'colonia' o 'colonia_comunidad'
+    // 3. Manejo de estado de negociación: 'estado' o 'status'
+    final String resolvedEstado = (json['estado'] ??
+            json['status'] ??
+            (isActiva ? 'disponible' : 'pausada'))
+        .toString();
+
+    // 4. Manejo de colonia: 'colonia' o 'colonia_comunidad'
     final String resolvedColonia = (json['colonia'] ??
             json['colonia_comunidad'] ??
             json['coloniaComunidad'] ??
             '')
         .toString();
 
-    // 4. Manejo de fecha: 'created_at' o 'fecha_publicacion'
+    // 5. Manejo de fecha: 'created_at' o 'fecha_publicacion'
     DateTime? fecha;
     final rawFecha = json['created_at'] ??
         json['fecha_publicacion'] ??
@@ -112,6 +122,7 @@ class OfferModel {
           (json['precioEstimado'] as num?)?.toDouble(),
       fechaPublicacion: fecha,
       activa: isActiva,
+      estado: resolvedEstado,
     );
   }
 
@@ -129,6 +140,7 @@ class OfferModel {
       'precio_estimado': precioEstimado,
       'fecha_publicacion': fechaPublicacion?.toIso8601String(),
       'activa': activa,
+      'estado': estado,
     };
   }
 }

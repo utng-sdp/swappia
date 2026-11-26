@@ -35,7 +35,18 @@ class MockOfferRepository implements OfferRepository {
     }
   }
 
-  @override
+  @override
+  Future<OfferEntity> updateOfferStatus(String id, String nuevoEstado) async {
+    final index = offers.indexWhere((o) => o.id == id);
+    if (index != -1) {
+      final updated = offers[index].copyWith(estado: nuevoEstado);
+      offers[index] = updated;
+      return updated;
+    }
+    throw Exception('Not found');
+  }
+
+  @override
   Future<void> deleteOffer(String id) async {
     offers.removeWhere((o) => o.id == id);
   }
@@ -277,3 +288,4 @@ void main() {
     });
   });
 }
+

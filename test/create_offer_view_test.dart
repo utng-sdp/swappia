@@ -31,7 +31,10 @@ class MockOfferRepository implements OfferRepository {
   @override
   Future<OfferEntity?> getOfferById(String id) async => null;
 
-  @override
+  @override
+  Future<OfferEntity> updateOfferStatus(String id, String nuevoEstado) async => throw UnimplementedError();
+
+  @override
   Future<void> deleteOffer(String id) async {}
 }
 
@@ -213,3 +216,4 @@ void main() {
     });
   });
 }
+

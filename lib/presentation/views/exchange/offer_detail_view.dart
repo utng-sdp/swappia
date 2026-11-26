@@ -1,8 +1,12 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/models/offer_entity.dart';
+import '../../viewmodels/auth_viewmodel.dart';
+import '../../viewmodels/exchange_viewmodel.dart';
+import '../../viewmodels/feed_viewmodel.dart';
 import '../../widgets/custom_button.dart';
 
 /// Pantalla de detalle de una publicación u oferta comunitaria (OfferDetailView).
@@ -27,6 +31,13 @@ class OfferDetailView extends StatefulWidget {
 class _OfferDetailViewState extends State<OfferDetailView> {
   final TextEditingController _proposalController = TextEditingController();
   bool _isSendingProposal = false;
+  OfferEntity? _currentOffer;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentOffer = widget.offer;
+  }
 
   @override
   void dispose() {
@@ -35,9 +46,12 @@ class _OfferDetailViewState extends State<OfferDetailView> {
   }
 
   OfferEntity? _resolveOffer(BuildContext context) {
-    if (widget.offer != null) return widget.offer;
+    if (_currentOffer != null) return _currentOffer;
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is OfferEntity) return args;
+    if (args is OfferEntity) {
+      _currentOffer = args;
+      return _currentOffer;
+    }
     return null;
   }
 
@@ -51,7 +65,7 @@ class _OfferDetailViewState extends State<OfferDetailView> {
         final isDark = theme.brightness == Brightness.dark;
 
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (modalCtx, setModalState) {
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom,
@@ -164,12 +178,26 @@ class _OfferDetailViewState extends State<OfferDetailView> {
                         }
 
                         setModalState(() => _isSendingProposal = true);
+
+                        // 1. Integración con ExchangeViewModel o callback provisto
+                        final exchangeVM = context.read<ExchangeViewModel?>();
+                        final authVM = context.read<AuthViewModel?>();
+                        final currentUserId = authVM?.currentUser?.id ?? 'usr_anon';
+
                         if (widget.onProposeExchange != null) {
                           await widget.onProposeExchange!(text);
+                        } else if (exchangeVM != null) {
+                          await exchangeVM.sendProposal(
+                            offerId: offer.id,
+                            usuarioProponenteId: currentUserId,
+                            propuesta: text,
+                            usuarioReceptorId: offer.usuarioId,
+                          );
                         } else {
-                          // Simular envío de propuesta
+                          // Simular persistencia
                           await Future.delayed(const Duration(milliseconds: 300));
                         }
+
                         setModalState(() => _isSendingProposal = false);
 
                         if (bottomSheetContext.mounted) {
@@ -178,7 +206,17 @@ class _OfferDetailViewState extends State<OfferDetailView> {
 
                         _proposalController.clear();
 
+                        // 2. Actualización de estado visual a "En propuesta" / "Pendiente de Aceptación"
+                        final updated = offer.copyWith(estado: 'en_propuesta');
+                        setState(() {
+                          _currentOffer = updated;
+                        });
+
+                        // Sincronizar con el FeedViewModel si está presente
                         if (context.mounted) {
+                          final feedVM = context.read<FeedViewModel?>();
+                          feedVM?.updateOffer(updated);
+
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: const Row(
@@ -264,14 +302,14 @@ class _OfferDetailViewState extends State<OfferDetailView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Badges de Modalidad y Categoría
+                  // Badges de Modalidad, Categoría y Estado
                   Row(
                     children: [
                       _buildModalityBadge(offer.modalidad),
                       const SizedBox(width: 8),
                       _buildCategoryBadge(offer.categoria, isDark),
                       const Spacer(),
-                      _buildStatusBadge(offer.activa),
+                      _buildStatusBadge(offer),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -386,9 +424,15 @@ class _OfferDetailViewState extends State<OfferDetailView> {
                   // Botón principal de acción: "Proponer Intercambio"
                   CustomButton(
                     key: const Key('propose_exchange_button'),
-                    text: 'Proponer Intercambio',
-                    icon: const Icon(Icons.handshake_rounded),
-                    backgroundColor: AppColors.secondary,
+                    text: offer.estaEnPropuesta
+                        ? 'Propuesta en Negociación'
+                        : 'Proponer Intercambio',
+                    icon: Icon(offer.estaEnPropuesta
+                        ? Icons.hourglass_top_rounded
+                        : Icons.handshake_rounded),
+                    backgroundColor: offer.estaEnPropuesta
+                        ? Colors.orange.shade700
+                        : AppColors.secondary,
                     onPressed: () => _showProposeExchangeModal(context, offer),
                   ),
                   const SizedBox(height: 20),
@@ -528,8 +572,44 @@ class _OfferDetailViewState extends State<OfferDetailView> {
     );
   }
 
-  Widget _buildStatusBadge(bool activa) {
+  Widget _buildStatusBadge(OfferEntity offer) {
+    // Si la publicación está en propuesta / pendiente de aceptación
+    if (offer.estaEnPropuesta) {
+      return Container(
+        key: const Key('offer_detail_status_badge'),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          border: Border.all(
+            color: Colors.orange.shade400,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.hourglass_top_rounded,
+              size: 12,
+              color: Colors.orange.shade800,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'En propuesta',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange.shade900,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final activa = offer.activa;
     return Container(
+      key: const Key('offer_detail_status_badge'),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: activa ? Colors.green.shade50 : Colors.grey.shade200,
@@ -680,4 +760,3 @@ class _OfferDetailViewState extends State<OfferDetailView> {
     }
   }
 }
-

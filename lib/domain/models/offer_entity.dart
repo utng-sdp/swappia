@@ -11,6 +11,7 @@ class OfferEntity {
   final double? precioEstimado;
   final DateTime? fechaPublicacion;
   final bool activa;
+  final String estado; // 'disponible', 'pendiente_aceptacion', 'en_propuesta', 'finalizada', etc.
 
   const OfferEntity({
     required this.id,
@@ -25,6 +26,7 @@ class OfferEntity {
     this.precioEstimado,
     this.fechaPublicacion,
     this.activa = true,
+    this.estado = 'disponible',
   });
 
   bool get tieneTituloValido => titulo.trim().length >= 3;
@@ -33,6 +35,18 @@ class OfferEntity {
   bool get esTruequePuro => modalidad.toLowerCase() == 'trueque';
   bool get esMixto => modalidad.toLowerCase() == 'mixto';
   bool get esDinero => modalidad.toLowerCase() == 'dinero';
+
+  /// Determina si la publicación tiene una propuesta pendiente o en curso.
+  bool get estaEnPropuesta {
+    final norm = estado.trim().toLowerCase();
+    return norm == 'en_propuesta' ||
+        norm == 'en propuesta' ||
+        norm == 'pendiente_aceptacion' ||
+        norm == 'pendiente de aceptación' ||
+        norm == 'pendiente';
+  }
+
+  bool get esDisponible => activa && !estaEnPropuesta;
 
   OfferEntity copyWith({
     String? id,
@@ -47,6 +61,7 @@ class OfferEntity {
     double? precioEstimado,
     DateTime? fechaPublicacion,
     bool? activa,
+    String? estado,
   }) {
     return OfferEntity(
       id: id ?? this.id,
@@ -61,6 +76,7 @@ class OfferEntity {
       precioEstimado: precioEstimado ?? this.precioEstimado,
       fechaPublicacion: fechaPublicacion ?? this.fechaPublicacion,
       activa: activa ?? this.activa,
+      estado: estado ?? this.estado,
     );
   }
 
@@ -80,7 +96,8 @@ class OfferEntity {
           loQueBusca == other.loQueBusca &&
           precioEstimado == other.precioEstimado &&
           fechaPublicacion == other.fechaPublicacion &&
-          activa == other.activa;
+          activa == other.activa &&
+          estado == other.estado;
 
   @override
   int get hashCode => Object.hash(
@@ -96,10 +113,11 @@ class OfferEntity {
         precioEstimado,
         fechaPublicacion,
         activa,
+        estado,
       );
 
   @override
   String toString() {
-    return 'OfferEntity(id: $id, titulo: $titulo, modalidad: $modalidad, colonia: $coloniaComunidad)';
+    return 'OfferEntity(id: $id, titulo: $titulo, modalidad: $modalidad, colonia: $coloniaComunidad, estado: $estado)';
   }
 }

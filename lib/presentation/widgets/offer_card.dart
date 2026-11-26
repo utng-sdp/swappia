@@ -8,7 +8,7 @@ import '../../domain/models/offer_entity.dart';
 /// Issue #16: feat(ui): Diseñar Feed Principal y tarjeta de publicación (OfferCard)
 ///
 /// Destaca el distintivo visual entre bienes y servicios vecinales, mostrando
-/// fotografía/miniatura, título, badges (Ofrezco / Busco, categoría, modalidad),
+/// fotografía/miniatura, título, badges (Ofrezco / Busco, categoría, modalidad, estado),
 /// usuario y colonia vecinal en Dolores Hidalgo.
 class OfferCard extends StatelessWidget {
   final OfferEntity offer;
@@ -103,7 +103,7 @@ class OfferCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Fila de Badges distintivos: Tipo (Ofrezco / Busco) + Naturaleza (Bien / Servicio) + Modalidad
+                    // Fila de Badges distintivos: Tipo + Naturaleza + Modalidad + Estado
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
@@ -116,6 +116,10 @@ class OfferCard extends StatelessWidget {
 
                         // Badge de Modalidad (Trueque / Dinero / Mixto)
                         _buildModalityChip(offer.modalidad),
+
+                        // Distintivo visual "En propuesta" si la oferta tiene propuesta activa
+                        if (offer.estaEnPropuesta)
+                          _buildEnPropuestaBadge(isDark),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -224,6 +228,40 @@ class OfferCard extends StatelessWidget {
     );
   }
 
+  Widget _buildEnPropuestaBadge(bool isDark) {
+    return Container(
+      key: Key('offer_status_badge_${offer.id}'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.orange.shade900.withValues(alpha: 0.4) : Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isDark ? Colors.orange.shade400 : Colors.orange.shade700,
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.hourglass_top_rounded,
+            size: 10,
+            color: isDark ? Colors.orange.shade200 : Colors.orange.shade800,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            'En propuesta',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.orange.shade200 : Colors.orange.shade800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTypeBadge(bool isDark) {
     final esBusqueda = _esBusqueda;
     final text = esBusqueda ? 'BUSCO' : 'OFREZCO';
@@ -259,8 +297,12 @@ class OfferCard extends StatelessWidget {
     final text = esServicio ? 'Servicio' : 'Bien';
     final icon = esServicio ? Icons.build_outlined : Icons.inventory_2_outlined;
 
-    final bgColor = isDark ? AppColors.darkSurfaceVariant : Colors.grey.shade100;
-    final textColor = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final bgColor = isDark
+        ? AppColors.darkSurfaceVariant
+        : (esServicio ? Colors.purple.shade50 : Colors.amber.shade50);
+    final textColor = isDark
+        ? AppColors.darkTextSecondary
+        : (esServicio ? Colors.purple.shade800 : Colors.amber.shade900);
 
     return Container(
       key: Key('offer_nature_badge_${offer.id}'),
@@ -268,6 +310,7 @@ class OfferCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: textColor.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -277,7 +320,7 @@ class OfferCard extends StatelessWidget {
           Text(
             text,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 9.5,
               fontWeight: FontWeight.w600,
               color: textColor,
             ),
@@ -294,13 +337,13 @@ class OfferCard extends StatelessWidget {
 
     switch (modalidad.toLowerCase()) {
       case 'dinero':
-        bg = Colors.amber.shade50;
-        fg = Colors.amber.shade900;
+        bg = Colors.blue.shade50;
+        fg = Colors.blue.shade800;
         label = 'Efectivo';
         break;
       case 'mixto':
-        bg = Colors.orange.shade50;
-        fg = Colors.orange.shade900;
+        bg = Colors.amber.shade50;
+        fg = Colors.amber.shade900;
         label = 'Mixto';
         break;
       case 'trueque':
@@ -321,7 +364,7 @@ class OfferCard extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 9.5,
           fontWeight: FontWeight.bold,
           color: fg,
         ),
@@ -331,26 +374,17 @@ class OfferCard extends StatelessWidget {
 
   Widget _buildOfferThumbnail(String path) {
     if (path.isEmpty) {
-      return Center(
-        child: Icon(
-          _esServicio ? Icons.handyman_rounded : Icons.swap_horiz_rounded,
-          color: Colors.teal,
-          size: 30,
-        ),
+      return const Center(
+        child: Icon(Icons.swap_horiz, color: Colors.teal, size: 30),
       );
     }
 
     if (kIsWeb || path.startsWith('http://') || path.startsWith('https://')) {
       return Image.network(
         path,
-        key: Key('offer_image_${offer.id}'),
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Center(
-          child: Icon(
-            _esServicio ? Icons.handyman_rounded : Icons.image_outlined,
-            color: Colors.teal,
-            size: 28,
-          ),
+        errorBuilder: (_, __, ___) => const Center(
+          child: Icon(Icons.image_outlined, color: Colors.teal, size: 28),
         ),
       );
     }
@@ -359,24 +393,15 @@ class OfferCard extends StatelessWidget {
     if (file.existsSync()) {
       return Image.file(
         file,
-        key: Key('offer_image_${offer.id}'),
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Center(
-          child: Icon(
-            _esServicio ? Icons.handyman_rounded : Icons.image_outlined,
-            color: Colors.teal,
-            size: 28,
-          ),
+        errorBuilder: (_, __, ___) => const Center(
+          child: Icon(Icons.image_outlined, color: Colors.teal, size: 28),
         ),
       );
     }
 
-    return Center(
-      child: Icon(
-        _esServicio ? Icons.handyman_rounded : Icons.image_outlined,
-        color: Colors.teal,
-        size: 28,
-      ),
+    return const Center(
+      child: Icon(Icons.image_outlined, color: Colors.teal, size: 28),
     );
   }
 }
