@@ -1,3 +1,4 @@
+import '../factories/exchange_factory.dart';
 import '../models/exchange_entity.dart';
 import '../models/offer_entity.dart';
 import '../repositories/exchange_repository.dart';
@@ -32,6 +33,10 @@ class ProposeExchangeUseCase {
     required String usuarioProponenteId,
     required String propuesta,
     String? usuarioReceptorId,
+    String modalidad = 'trueque',
+    double? montoEfectivo,
+    String? bienOfrecidoId,
+    String? bienOfrecidoTitulo,
   }) async {
     // 1. Validaciones de negocio sobre campos obligatorios
     final cleanOfferId = offerId.trim();
@@ -65,13 +70,17 @@ class ProposeExchangeUseCase {
 
     final resolvedReceptorId = usuarioReceptorId ?? offer?.usuarioId;
 
-    // 3. Crear entidad y persistir en la base de datos de Supabase
-    final newExchange = ExchangeEntity(
+    // 3. Crear entidad mediante ExchangeFactory y persistir en la base de datos de Supabase
+    final newExchange = ExchangeFactory.create(
+      modalidad: modalidad,
       id: 'prop_${DateTime.now().millisecondsSinceEpoch}',
       offerId: cleanOfferId,
       usuarioProponenteId: cleanProponenteId,
       usuarioReceptorId: resolvedReceptorId,
       propuesta: cleanPropuesta,
+      montoEfectivo: montoEfectivo,
+      bienOfrecidoId: bienOfrecidoId,
+      bienOfrecidoTitulo: bienOfrecidoTitulo,
       estado: 'pendiente_aceptacion',
       fechaCreacion: DateTime.now(),
     );

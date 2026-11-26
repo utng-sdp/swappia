@@ -6,7 +6,11 @@ class ExchangeModel {
   final String offerId;
   final String usuarioProponenteId;
   final String? usuarioReceptorId;
+  final String modalidad;
   final String propuesta;
+  final double? montoEfectivo;
+  final String? bienOfrecidoId;
+  final String? bienOfrecidoTitulo;
   final String estado;
   final DateTime fechaCreacion;
   final DateTime? fechaActualizacion;
@@ -16,7 +20,11 @@ class ExchangeModel {
     required this.offerId,
     required this.usuarioProponenteId,
     this.usuarioReceptorId,
+    this.modalidad = 'trueque',
     required this.propuesta,
+    this.montoEfectivo,
+    this.bienOfrecidoId,
+    this.bienOfrecidoTitulo,
     this.estado = 'pendiente_aceptacion',
     required this.fechaCreacion,
     this.fechaActualizacion,
@@ -28,7 +36,11 @@ class ExchangeModel {
       offerId: offerId,
       usuarioProponenteId: usuarioProponenteId,
       usuarioReceptorId: usuarioReceptorId,
+      modalidad: modalidad,
       propuesta: propuesta,
+      montoEfectivo: montoEfectivo,
+      bienOfrecidoId: bienOfrecidoId,
+      bienOfrecidoTitulo: bienOfrecidoTitulo,
       estado: estado,
       fechaCreacion: fechaCreacion,
       fechaActualizacion: fechaActualizacion,
@@ -41,7 +53,11 @@ class ExchangeModel {
       offerId: entity.offerId,
       usuarioProponenteId: entity.usuarioProponenteId,
       usuarioReceptorId: entity.usuarioReceptorId,
+      modalidad: entity.modalidad,
       propuesta: entity.propuesta,
+      montoEfectivo: entity.montoEfectivo,
+      bienOfrecidoId: entity.bienOfrecidoId,
+      bienOfrecidoTitulo: entity.bienOfrecidoTitulo,
       estado: entity.estado,
       fechaCreacion: entity.fechaCreacion,
       fechaActualizacion: entity.fechaActualizacion,
@@ -62,6 +78,11 @@ class ExchangeModel {
     final DateTime? fechaUpdate =
         rawUpdate != null ? DateTime.tryParse(rawUpdate.toString()) : null;
 
+    final rawMonto = json['monto_efectivo'] ?? json['montoEfectivo'];
+    final double? monto = rawMonto is num
+        ? rawMonto.toDouble()
+        : (rawMonto != null ? double.tryParse(rawMonto.toString()) : null);
+
     return ExchangeModel(
       id: (json['id'] ?? '').toString(),
       offerId: (json['offer_id'] ??
@@ -77,11 +98,19 @@ class ExchangeModel {
       usuarioReceptorId: json['usuario_receptor_id']?.toString() ??
           json['receptor_id']?.toString() ??
           json['usuarioReceptorId']?.toString(),
+      modalidad: (json['modalidad'] ?? json['tipo_pago'] ?? 'trueque')
+          .toString()
+          .toLowerCase(),
       propuesta: (json['propuesta'] ??
               json['mensaje'] ??
               json['descripcion'] ??
               '')
           .toString(),
+      montoEfectivo: monto,
+      bienOfrecidoId: json['bien_ofrecido_id']?.toString() ??
+          json['bienOfrecidoId']?.toString(),
+      bienOfrecidoTitulo: json['bien_ofrecido_titulo']?.toString() ??
+          json['bienOfrecidoTitulo']?.toString(),
       estado: (json['estado'] ?? json['status'] ?? 'pendiente_aceptacion')
           .toString(),
       fechaCreacion: fecha,
@@ -95,7 +124,12 @@ class ExchangeModel {
       'offer_id': offerId,
       'usuario_proponente_id': usuarioProponenteId,
       'usuario_receptor_id': usuarioReceptorId,
+      'modalidad': modalidad,
       'propuesta': propuesta,
+      if (montoEfectivo != null) 'monto_efectivo': montoEfectivo,
+      if (bienOfrecidoId != null) 'bien_ofrecido_id': bienOfrecidoId,
+      if (bienOfrecidoTitulo != null)
+        'bien_ofrecido_titulo': bienOfrecidoTitulo,
       'estado': estado,
       'created_at': fechaCreacion.toIso8601String(),
       'updated_at': fechaActualizacion?.toIso8601String(),

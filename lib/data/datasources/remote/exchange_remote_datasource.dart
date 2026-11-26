@@ -37,6 +37,13 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
     return _uuidRegex.hasMatch(value.trim());
   }
 
+  bool _isMissingTableError(PostgrestException e) {
+    final msg = e.message.toLowerCase();
+    return e.code == 'PGRST205' ||
+        e.code == '42P01' ||
+        msg.contains('could not find the table');
+  }
+
   SupabaseExchangeRemoteDataSource({SupabaseClient? client})
       : _customClient = client;
 
@@ -50,6 +57,10 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
   @override
   Future<ExchangeModel> createProposal(ExchangeModel exchange) async {
     final payload = exchange.toJson();
+    final currentUser = _client.auth.currentUser;
+    if (currentUser != null) {
+      payload['usuario_proponente_id'] = currentUser.id;
+    }
 
     // Si el id no es un UUID válido, permitir que PostgreSQL genere el UUID por defecto
     if (payload['id'] == null ||
@@ -67,7 +78,10 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
       final model = ExchangeModel.fromJson(response);
       _localStreamController.add(model);
       return model;
-    } catch (_) {
+    } on PostgrestException catch (e) {
+      if (!_isMissingTableError(e)) {
+        rethrow;
+      }
       try {
         final response = await _client
             .from('intercambios')
@@ -77,7 +91,10 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
         final model = ExchangeModel.fromJson(response);
         _localStreamController.add(model);
         return model;
-      } catch (_) {
+      } on PostgrestException catch (e2) {
+        if (!_isMissingTableError(e2)) {
+          rethrow;
+        }
         final response = await _client
             .from('propuestas')
             .insert(payload)

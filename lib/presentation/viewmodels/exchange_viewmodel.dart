@@ -29,7 +29,9 @@ class ExchangeViewModel extends ChangeNotifier {
   ExchangeEntity? _currentProposal;
   OfferEntity? _updatedOffer;
   UserEntity? _ratedUser;
+  List<ExchangeEntity> _userProposals = [];
   bool _isRatingSubmitting = false;
+  bool _isLoadingProposals = false;
 
   StreamSubscription<ExchangeEntity>? _realtimeSubscription;
 
@@ -49,11 +51,13 @@ class ExchangeViewModel extends ChangeNotifier {
   bool get isSuccess => _status == ExchangeStatus.success;
   bool get hasError => _status == ExchangeStatus.error;
   bool get isRatingSubmitting => _isRatingSubmitting;
+  bool get isLoadingProposals => _isLoadingProposals;
   String? get errorMessage => _errorMessage;
   String? get successMessage => _successMessage;
   ExchangeEntity? get currentProposal => _currentProposal;
   OfferEntity? get updatedOffer => _updatedOffer;
   UserEntity? get ratedUser => _ratedUser;
+  List<ExchangeEntity> get userProposals => List.unmodifiable(_userProposals);
 
   /// Limpia los campos del formulario de propuesta
   void clearForm() {
@@ -125,6 +129,10 @@ class ExchangeViewModel extends ChangeNotifier {
     required String usuarioProponenteId,
     String? propuesta,
     String? usuarioReceptorId,
+    String modalidad = 'trueque',
+    double? montoEfectivo,
+    String? bienOfrecidoId,
+    String? bienOfrecidoTitulo,
   }) async {
     _status = ExchangeStatus.loading;
     _errorMessage = null;
@@ -139,10 +147,15 @@ class ExchangeViewModel extends ChangeNotifier {
         usuarioProponenteId: usuarioProponenteId,
         propuesta: textToSend,
         usuarioReceptorId: usuarioReceptorId,
+        modalidad: modalidad,
+        montoEfectivo: montoEfectivo,
+        bienOfrecidoId: bienOfrecidoId,
+        bienOfrecidoTitulo: bienOfrecidoTitulo,
       );
 
       _currentProposal = result.proposal;
       _updatedOffer = result.updatedOffer;
+      _upsertUserProposal(result.proposal);
       _status = ExchangeStatus.success;
       _successMessage = '¡Propuesta de intercambio enviada con éxito!';
       _errorMessage = null;
@@ -172,6 +185,7 @@ class ExchangeViewModel extends ChangeNotifier {
     required String reviewerUserId,
     required double rating,
     String? comment,
+    String? exchangeId,
   }) async {
     if (_rateUserUseCase == null) {
       _errorMessage = 'El servicio de calificaciones no está disponible.';
@@ -189,6 +203,7 @@ class ExchangeViewModel extends ChangeNotifier {
         reviewerUserId: reviewerUserId,
         rating: rating,
         comment: comment,
+        exchangeId: exchangeId,
       );
 
       _ratedUser = updatedUser;
@@ -198,6 +213,87 @@ class ExchangeViewModel extends ChangeNotifier {
       return true;
     } catch (e) {
       _isRatingSubmitting = false;
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Carga todas las propuestas de intercambio donde participa el usuario.
+  Future<void> loadUserProposals(String userId) async {
+    if (_exchangeRepository == null || userId.trim().isEmpty) return;
+    _isLoadingProposals = true;
+    notifyListeners();
+    try {
+      _userProposals = await _exchangeRepository!.getProposalsByUser(userId);
+    } catch (e) {
+      _errorMessage = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _isLoadingProposals = false;
+      notifyListeners();
+    }
+  }
+
+  void _upsertUserProposal(ExchangeEntity proposal) {
+    final idx = _userProposals.indexWhere((p) => p.id == proposal.id);
+    if (idx != -1) {
+      _userProposals[idx] = proposal;
+    } else {
+      _userProposals = [proposal, ..._userProposals];
+    }
+  }
+
+  /// Acepta una propuesta de intercambio y actualiza el estado en Supabase.
+  Future<bool> acceptProposal(String exchangeId) async {
+    return _updateProposalStatus(
+      exchangeId,
+      'aceptada',
+      '¡Acuerdo confirmado! Ya pueden coordinar la entrega y calificar.',
+    );
+  }
+
+  /// Rechaza una propuesta de intercambio y actualiza el estado en Supabase.
+  Future<bool> rejectProposal(String exchangeId) async {
+    return _updateProposalStatus(
+      exchangeId,
+      'rechazada',
+      'La propuesta de intercambio fue rechazada.',
+    );
+  }
+
+  Future<bool> _updateProposalStatus(
+    String exchangeId,
+    String newStatus,
+    String successText,
+  ) async {
+    if (_exchangeRepository == null) {
+      if (_currentProposal != null) {
+        _currentProposal = _currentProposal!.copyWith(estado: newStatus);
+        _upsertUserProposal(_currentProposal!);
+        _successMessage = successText;
+        notifyListeners();
+      }
+      return true;
+    }
+
+    _status = ExchangeStatus.loading;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updated =
+          await _exchangeRepository!.updateProposalStatus(exchangeId, newStatus);
+      _currentProposal = updated;
+      _upsertUserProposal(updated);
+      if (_updatedOffer != null) {
+        _updatedOffer = _updatedOffer!.copyWith(estado: newStatus);
+      }
+      _status = ExchangeStatus.success;
+      _successMessage = successText;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _status = ExchangeStatus.error;
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;
