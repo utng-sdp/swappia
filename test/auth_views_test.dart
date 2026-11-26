@@ -115,6 +115,9 @@ void main() {
       expect(find.text('Nombre completo'), findsOneWidget);
       expect(find.text('Telefono celular (10 digitos)'), findsOneWidget);
       expect(find.text('Correo electronico'), findsOneWidget);
+      expect(find.byKey(const Key('register_cp_dropdown')), findsOneWidget);
+      expect(find.byKey(const Key('register_municipio_dropdown')), findsOneWidget);
+      expect(find.byKey(const Key('register_colonia_dropdown')), findsOneWidget);
       expect(find.text('Colonia o comunidad (Dolores Hidalgo)'), findsOneWidget);
       expect(find.text('Registrarme como Vecino'), findsOneWidget);
     });
@@ -134,8 +137,8 @@ void main() {
       await tester.enterText(textFields.at(0), 'Carlos Samael');
       await tester.enterText(textFields.at(1), '418123');
       await tester.enterText(textFields.at(2), 'carlos@dolores.com');
+      await tester.enterText(textFields.at(3), '123456');
       await tester.enterText(textFields.at(4), '123456');
-      await tester.enterText(textFields.at(5), '123456');
       await tester.pump();
 
       await tester.ensureVisible(find.byType(CustomButton));
@@ -160,8 +163,8 @@ void main() {
       await tester.enterText(textFields.at(0), 'Carlos Samael');
       await tester.enterText(textFields.at(1), '4181234567');
       await tester.enterText(textFields.at(2), 'carlos@dolores.com');
-      await tester.enterText(textFields.at(4), 'passwordA');
-      await tester.enterText(textFields.at(5), 'passwordB');
+      await tester.enterText(textFields.at(3), 'passwordA');
+      await tester.enterText(textFields.at(4), 'passwordB');
       await tester.pump();
 
       await tester.ensureVisible(find.byType(CustomButton));

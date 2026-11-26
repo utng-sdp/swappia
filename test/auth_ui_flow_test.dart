@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swappia_app/data/datasources/local/auth_local_datasource.dart';
@@ -111,20 +111,27 @@ void main() {
 
     expect(find.text('Registro de Vecino'), findsOneWidget);
 
-    // Llenar formulario de nuevo vecino
+    // Llenar formulario de nuevo vecino incluyendo selector en cascada CP -> Municipio -> Colonia
     await tester.enterText(find.byKey(const Key('register_nombre_field')), 'Doña Juanita Taller');
-    await tester.enterText(find.byKey(const Key('register_colonia_field')), 'El Llanito');
     await tester.enterText(find.byKey(const Key('register_telefono_field')), '4181122334');
     await tester.enterText(find.byKey(const Key('register_email_field')), 'juanita@swappia.mx');
+
+    await tester.ensureVisible(find.byKey(const Key('register_cp_dropdown')));
+    await tester.tap(find.byKey(const Key('register_cp_dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('37800 — Dolores Hidalgo Cuna de la Independencia Nacional').last);
+    await tester.pumpAndSettle();
+
     await tester.enterText(find.byKey(const Key('register_password_field')), 'secret123');
 
     // Registrar
+    await tester.ensureVisible(find.byKey(const Key('register_submit_button')));
     await tester.tap(find.byKey(const Key('register_submit_button')));
     await tester.pumpAndSettle();
 
     // Criterio de Aceptación: Redirige automáticamente al Feed
     expect(find.text('Swappia Feed'), findsOneWidget);
     expect(find.text('Doña Juanita Taller'), findsOneWidget);
-    expect(find.text('El Llanito'), findsWidgets);
+    expect(find.text('Centro'), findsWidgets);
   });
 }

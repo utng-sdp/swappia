@@ -43,12 +43,12 @@ Swappia digitaliza y potencia la confianza vecinal a través de un canal hiperlo
 
 ### MVP (Producto Mínimo Viable — Indispensable)
 - [x] **Inicialización y configuración base de arquitectura por capas.**
-- [x] **Registro e inicio de sesión** (Supabase Auth - perfil vecino).
-- [x] **Publicar oferta o necesidad** (Servicios u oficios y bienes materiales con fotos y descripción).
-- [ ] **Búsqueda y filtros hiperlocales** por colonia/comunidad y categorías.
-- [ ] **Proponer intercambio:** Selección de tipo de acuerdo (dinero, trueque o mixto).
-- [ ] **Confirmación del intercambio.**
-- [ ] **Calificar tras el intercambio** (reputación vecinal).
+- [x] **Registro e inicio de sesión** (Supabase Auth - perfil vecino + ubicación en cascada por API de Códigos Postales).
+- [x] **Publicar oferta o necesidad** (Servicios u oficios y bienes materiales con fotos, descripción y selector CP -> Municipio -> Colonia).
+- [x] **Búsqueda y filtros hiperlocales** por código postal/colonia/comunidad y categorías.
+- [x] **Proponer intercambio:** Selección de tipo de acuerdo (dinero, trueque o mixto) mediante `ProposeExchangeDialog` y `ExchangeFactory`.
+- [x] **Confirmación del intercambio:** Pantalla `ExchangeConfirmationView` con actualización en vivo (Supabase Realtime).
+- [x] **Calificar tras el intercambio:** Reputación vecinal (`RateUserView`, tabla `ratings` y trigger automático en PostgreSQL).
 
 ### Roadmap Futuro
 - [ ] Sistema de puntos *"Manzanas"* para trueques indirectos y acumulativos.
@@ -320,6 +320,32 @@ unApp().
      - Soporte híbrido en OfferModel.fromJson para interpretar tanto columnas en español (ctivo, otos array, colonia, created_at) como en formato estándar (ctiva, oto_url, colonia_comunidad, echa_publicacion).
   3. 	est/offers_remote_datasource_test.dart:
      - Nueva suite de pruebas unitarias validando el mapeo e integridad de datos provenientes de la tabla publicaciones de Supabase.
+
+---
+
+## 🏃 SPRINT 3 & CIERRE MVP
+
+### Entrega 3.1: APIs de Códigos Postales y Listas Desplegables en Cascada (`C.P. -> Municipio -> Colonia`)
+* **Servicio (`PostalCodeService`)** en `lib/core/services/postal_code_service.dart`:
+  - Consulta en paralelo a las APIs públicas mexicanas **OpenDataSoft Geonames MX** y **Zippopotam.us MX** con caché en memoria y respaldo local para Dolores Hidalgo y Guanajuato.
+* **Componente Reutilizable (`PostalCodeLocationSelector`)** en `lib/presentation/widgets/postal_code_location_selector.dart`:
+  - Al elegir un Código Postal en la lista desplegable, se autollenan automáticamente las listas desplegables de **Municipio** y **Colonia / Comunidad**.
+  - Integrado en `RegisterView`, `CreateOfferView` y en el panel de filtros de `FeedView`.
+
+### Entrega 3.2: Tabla `exchanges`, Patrón Factory y Modal "Proponer Intercambio" (Issues [#18](https://github.com/utng-sdp/swappia/issues/18) y [#19](https://github.com/utng-sdp/swappia/issues/19))
+* **Migración PostgreSQL** en `supabase/migrations/20261023_create_exchanges.sql` con RLS y publicación en `supabase_realtime`.
+* **Patrón Factory (`ExchangeFactory`)** en `lib/domain/factories/exchange_factory.dart` con clases derivadas `CashExchange`, `BarterExchange` y `MixedExchange`.
+* **Modal `ProposeExchangeDialog`** en `lib/presentation/views/exchange/propose_exchange_dialog.dart` con selector de modalidad (`ChoiceChip`), selector opcional de bien propio y validación de propuesta.
+
+### Entrega 3.3: Tabla `ratings`, Trigger de Reputación y Pantallas de Confirmación / Calificación (Issues [#21](https://github.com/utng-sdp/swappia/issues/21) y [#22](https://github.com/utng-sdp/swappia/issues/22))
+* **Migración PostgreSQL** en `supabase/migrations/20261024_create_ratings_and_reputation_trigger.sql` con trigger `trg_ratings_recalculate_reputation` que recalcula `rating_avg` en `profiles`.
+* **Repositorio `RatingsRepositoryImpl`** en `lib/data/repositories/ratings_repository_impl.dart` conectado a `RateUserUseCase`.
+* **Pantallas** `ExchangeConfirmationView` (`lib/presentation/views/exchange/exchange_confirmation_view.dart`) y `RateUserView` (`lib/presentation/views/exchange/rate_user_view.dart`) con valoración de 1 a 5 estrellas y confirmación visual.
+
+### Entrega 3.4: Pruebas Unitarias, Pruebas Piloto UI/UX y Release APK (Issues [#24](https://github.com/utng-sdp/swappia/issues/24), [#25](https://github.com/utng-sdp/swappia/issues/25) y [#26](https://github.com/utng-sdp/swappia/issues/26))
+* **Cobertura de pruebas**: `test/exchange_factory_test.dart`, `test/ratings_repository_test.dart`, `test/postal_code_service_test.dart`, `test/exchange_views_and_dialog_test.dart` y `test/pilot_responsive_ui_test.dart`.
+* **Pulido UI/UX**: Prevención de `RenderFlex overflow` en `CustomButton` y `FeedView`, además de transiciones suaves entre rutas en `lib/main.dart`.
+* **Build de producción**: Generación de `.apk` de lanzamiento mediante `flutter build apk --release`.
 
 ---
 
