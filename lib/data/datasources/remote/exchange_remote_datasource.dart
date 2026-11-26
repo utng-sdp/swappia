@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../models/exchange_model.dart';
@@ -9,15 +10,27 @@ abstract class ExchangeRemoteDataSource {
   Future<List<ExchangeModel>> getProposalsByUser(String userId);
   Future<ExchangeModel?> getProposalById(String id);
   Future<ExchangeModel> updateProposalStatus(String id, String nuevoEstado);
+
+  /// Escucha actualizaciones en tiempo real mediante WebSockets de Supabase Realtime
+  Stream<ExchangeModel> listenToExchangeUpdates({
+    String? offerId,
+    String? exchangeId,
+  });
+
+  /// Emite una actualización en vivo (para mocks y pruebas)
+  void emitRealtimeUpdate(ExchangeModel model);
 }
 
-/// Implementación remota conectada a Supabase (PostgreSQL).
+/// Implementación remota conectada a Supabase (PostgreSQL y Realtime).
 /// Persiste propuestas en la tabla 'exchanges' con fallback a 'intercambios' o 'propuestas'.
 class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
   final SupabaseClient? _customClient;
   static final RegExp _uuidRegex = RegExp(
     r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
   );
+
+  final StreamController<ExchangeModel> _localStreamController =
+      StreamController<ExchangeModel>.broadcast();
 
   bool _isValidUuid(String? value) {
     if (value == null) return false;
@@ -51,7 +64,9 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
           .insert(payload)
           .select()
           .single();
-      return ExchangeModel.fromJson(response);
+      final model = ExchangeModel.fromJson(response);
+      _localStreamController.add(model);
+      return model;
     } catch (_) {
       try {
         final response = await _client
@@ -59,14 +74,18 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
             .insert(payload)
             .select()
             .single();
-        return ExchangeModel.fromJson(response);
+        final model = ExchangeModel.fromJson(response);
+        _localStreamController.add(model);
+        return model;
       } catch (_) {
         final response = await _client
             .from('propuestas')
             .insert(payload)
             .select()
             .single();
-        return ExchangeModel.fromJson(response);
+        final model = ExchangeModel.fromJson(response);
+        _localStreamController.add(model);
+        return model;
       }
     }
   }
@@ -131,6 +150,7 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
 
   @override
   Future<ExchangeModel> updateProposalStatus(String id, String nuevoEstado) async {
+    ExchangeModel updated;
     try {
       final response = await _client
           .from('exchanges')
@@ -138,7 +158,7 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
           .eq('id', id)
           .select()
           .single();
-      return ExchangeModel.fromJson(response);
+      updated = ExchangeModel.fromJson(response);
     } catch (_) {
       final response = await _client
           .from('intercambios')
@@ -146,14 +166,73 @@ class SupabaseExchangeRemoteDataSource implements ExchangeRemoteDataSource {
           .eq('id', id)
           .select()
           .single();
-      return ExchangeModel.fromJson(response);
+      updated = ExchangeModel.fromJson(response);
     }
+    _localStreamController.add(updated);
+    return updated;
+  }
+
+  @override
+  Stream<ExchangeModel> listenToExchangeUpdates({
+    String? offerId,
+    String? exchangeId,
+  }) {
+    late StreamController<ExchangeModel> controller;
+
+    controller = StreamController<ExchangeModel>.broadcast(
+      onListen: () {
+        try {
+          final channelName = 'public:exchanges:${exchangeId ?? offerId ?? 'all'}';
+          final channel = _client.channel(channelName);
+
+          channel
+              .onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'exchanges',
+                callback: (payload) {
+                  try {
+                    final data = payload.newRecord;
+                    if (data.isNotEmpty) {
+                      final exchange = ExchangeModel.fromJson(data);
+                      if (exchangeId != null && exchange.id != exchangeId) return;
+                      if (offerId != null && exchange.offerId != offerId) return;
+                      if (!controller.isClosed) {
+                        controller.add(exchange);
+                      }
+                    }
+                  } catch (_) {}
+                },
+              )
+              .subscribe();
+        } catch (_) {}
+
+        // También vincular con el stream local para notificaciones inmediatas
+        final sub = _localStreamController.stream.listen((exchange) {
+          if (exchangeId != null && exchange.id != exchangeId) return;
+          if (offerId != null && exchange.offerId != offerId) return;
+          if (!controller.isClosed) {
+            controller.add(exchange);
+          }
+        });
+        controller.onCancel = () => sub.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  @override
+  void emitRealtimeUpdate(ExchangeModel model) {
+    _localStreamController.add(model);
   }
 }
 
 /// Implementación Mock en memoria para pruebas unitarias y modo sin conexión.
 class MockExchangeRemoteDataSource implements ExchangeRemoteDataSource {
   final List<ExchangeModel> _proposals = [];
+  final StreamController<ExchangeModel> _streamController =
+      StreamController<ExchangeModel>.broadcast();
 
   List<ExchangeModel> get proposals => List.unmodifiable(_proposals);
 
@@ -174,6 +253,7 @@ class MockExchangeRemoteDataSource implements ExchangeRemoteDataSource {
       fechaActualizacion: exchange.fechaActualizacion,
     );
     _proposals.insert(0, saved);
+    _streamController.add(saved);
     return saved;
   }
 
@@ -219,8 +299,26 @@ class MockExchangeRemoteDataSource implements ExchangeRemoteDataSource {
         fechaActualizacion: DateTime.now(),
       );
       _proposals[index] = updated;
+      _streamController.add(updated);
       return updated;
     }
     throw Exception('Propuesta no encontrada para actualizar: $id');
+  }
+
+  @override
+  Stream<ExchangeModel> listenToExchangeUpdates({
+    String? offerId,
+    String? exchangeId,
+  }) {
+    return _streamController.stream.where((item) {
+      if (exchangeId != null && item.id != exchangeId) return false;
+      if (offerId != null && item.offerId != offerId) return false;
+      return true;
+    });
+  }
+
+  @override
+  void emitRealtimeUpdate(ExchangeModel model) {
+    _streamController.add(model);
   }
 }

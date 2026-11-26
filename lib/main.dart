@@ -10,11 +10,13 @@ import 'data/datasources/remote/offers_remote_datasource.dart';
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/exchange_repository_impl.dart';
 import 'data/repositories/offer_repository_impl.dart';
+import 'data/repositories/user_repository_impl.dart';
 import 'domain/models/offer_entity.dart';
 import 'domain/usecases/get_session_usecase.dart';
 import 'domain/usecases/login_usecase.dart';
 import 'domain/usecases/propose_exchange_usecase.dart';
 import 'domain/usecases/publish_offer_usecase.dart';
+import 'domain/usecases/rate_user_usecase.dart';
 import 'domain/usecases/register_usecase.dart';
 import 'presentation/viewmodels/auth_viewmodel.dart';
 import 'presentation/viewmodels/create_offer_viewmodel.dart';
@@ -83,8 +85,14 @@ Future<void> main() async {
     exchangeRepository: exchangeRepository,
     offerRepository: offerRepository,
   );
+
+  final userRepository = UserRepositoryImpl();
+  final rateUserUseCase = RateUserUseCase(userRepository);
+
   final exchangeViewModel = ExchangeViewModel(
     proposeExchangeUseCase: proposeExchangeUseCase,
+    rateUserUseCase: rateUserUseCase,
+    exchangeRepository: exchangeRepository,
   );
 
   runApp(SwappiaApp(
@@ -144,15 +152,6 @@ class _SwappiaAppState extends State<SwappiaApp> {
       },
       home: Consumer<AuthViewModel>(
         builder: (context, auth, _) {
-          if (auth.isLoading &&
-              auth.status == AuthStatus.loading &&
-              auth.currentUser == null) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
           if (auth.isAuthenticated) {
             return const FeedView();
           }
@@ -161,56 +160,80 @@ class _SwappiaAppState extends State<SwappiaApp> {
       ),
     );
 
-    final effectiveAuthVM = widget.authViewModel ??
-        AuthViewModel(
-          loginUseCase: LoginUseCase(
-            AuthRepositoryImpl(
-              remoteDataSource: MockAuthRemoteDataSource(),
-              localDataSource: SharedPreferencesAuthLocalDataSource(),
-            ),
-          ),
-          registerUseCase: RegisterUseCase(
-            AuthRepositoryImpl(
-              remoteDataSource: MockAuthRemoteDataSource(),
-              localDataSource: SharedPreferencesAuthLocalDataSource(),
-            ),
-          ),
-          getSessionUseCase: GetSessionUseCase(
-            AuthRepositoryImpl(
-              remoteDataSource: MockAuthRemoteDataSource(),
-              localDataSource: SharedPreferencesAuthLocalDataSource(),
-            ),
-          ),
-        );
-
-    final effectiveOfferRepo = OfferRepositoryImpl();
-    final effectiveOfferVM = widget.createOfferViewModel ??
-        CreateOfferViewModel(
-          publishOfferUseCase: PublishOfferUseCase(effectiveOfferRepo),
-        );
-
-    final effectiveFeedVM = widget.feedViewModel ??
-        FeedViewModel(
-          offerRepository: effectiveOfferRepo,
-        );
-
-    final effectiveExchangeRepo = ExchangeRepositoryImpl();
-    final effectiveExchangeVM = widget.exchangeViewModel ??
-        ExchangeViewModel(
-          proposeExchangeUseCase: ProposeExchangeUseCase(
-            exchangeRepository: effectiveExchangeRepo,
-            offerRepository: effectiveOfferRepo,
-          ),
-        );
-
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthViewModel>.value(value: effectiveAuthVM),
-        ChangeNotifierProvider<CreateOfferViewModel>.value(
-            value: effectiveOfferVM),
-        ChangeNotifierProvider<FeedViewModel>.value(value: effectiveFeedVM),
-        ChangeNotifierProvider<ExchangeViewModel>.value(
-            value: effectiveExchangeVM),
+        if (widget.authViewModel != null)
+          ChangeNotifierProvider<AuthViewModel>.value(
+            value: widget.authViewModel!,
+          )
+        else
+          ChangeNotifierProvider<AuthViewModel>(
+            create: (_) {
+              final authRepo = AuthRepositoryImpl(
+                remoteDataSource: MockAuthRemoteDataSource(),
+                localDataSource: SharedPreferencesAuthLocalDataSource(),
+              );
+              return AuthViewModel(
+                loginUseCase: LoginUseCase(authRepo),
+                registerUseCase: RegisterUseCase(authRepo),
+                getSessionUseCase: GetSessionUseCase(authRepo),
+              );
+            },
+          ),
+        if (widget.createOfferViewModel != null)
+          ChangeNotifierProvider<CreateOfferViewModel>.value(
+            value: widget.createOfferViewModel!,
+          )
+        else
+          ChangeNotifierProvider<CreateOfferViewModel>(
+            create: (_) {
+              final repo = OfferRepositoryImpl(
+                remoteDataSource: MockOffersRemoteDataSource(),
+              );
+              return CreateOfferViewModel(
+                publishOfferUseCase: PublishOfferUseCase(repo),
+              );
+            },
+          ),
+        if (widget.feedViewModel != null)
+          ChangeNotifierProvider<FeedViewModel>.value(
+            value: widget.feedViewModel!,
+          )
+        else
+          ChangeNotifierProvider<FeedViewModel>(
+            create: (_) {
+              final repo = OfferRepositoryImpl(
+                remoteDataSource: MockOffersRemoteDataSource(),
+              );
+              return FeedViewModel(
+                offerRepository: repo,
+              );
+            },
+          ),
+        if (widget.exchangeViewModel != null)
+          ChangeNotifierProvider<ExchangeViewModel>.value(
+            value: widget.exchangeViewModel!,
+          )
+        else
+          ChangeNotifierProvider<ExchangeViewModel>(
+            create: (_) {
+              final exRepo = ExchangeRepositoryImpl(
+                remoteDataSource: MockExchangeRemoteDataSource(),
+              );
+              final offRepo = OfferRepositoryImpl(
+                remoteDataSource: MockOffersRemoteDataSource(),
+              );
+              final userRepo = UserRepositoryImpl();
+              return ExchangeViewModel(
+                proposeExchangeUseCase: ProposeExchangeUseCase(
+                  exchangeRepository: exRepo,
+                  offerRepository: offRepo,
+                ),
+                rateUserUseCase: RateUserUseCase(userRepo),
+                exchangeRepository: exRepo,
+              );
+            },
+          ),
       ],
       child: appWidget,
     );

@@ -1,12 +1,16 @@
+import 'dart:async';
 import '../../domain/models/exchange_entity.dart';
 import '../../domain/repositories/exchange_repository.dart';
 import '../datasources/remote/exchange_remote_datasource.dart';
 import '../models/exchange_model.dart';
 
-/// Implementación de ExchangeRepository con soporte de persistencia en Supabase y respaldo en memoria.
+/// Implementación de ExchangeRepository con soporte de persistencia en Supabase,
+/// WebSockets de Supabase Realtime y respaldo reactivo en memoria.
 class ExchangeRepositoryImpl implements ExchangeRepository {
   final ExchangeRemoteDataSource? _remoteDataSource;
   final List<ExchangeModel> _inMemoryProposals = [];
+  final StreamController<ExchangeEntity> _fallbackStreamController =
+      StreamController<ExchangeEntity>.broadcast();
 
   ExchangeRepositoryImpl({ExchangeRemoteDataSource? remoteDataSource})
       : _remoteDataSource = remoteDataSource;
@@ -19,6 +23,7 @@ class ExchangeRepositoryImpl implements ExchangeRepository {
       try {
         final saved = await _remoteDataSource!.createProposal(model);
         _inMemoryProposals.insert(0, saved);
+        _fallbackStreamController.add(saved.toEntity());
         return saved.toEntity();
       } catch (_) {
         // Fallback a memoria si la red falla
@@ -26,7 +31,9 @@ class ExchangeRepositoryImpl implements ExchangeRepository {
     }
 
     _inMemoryProposals.insert(0, model);
-    return model.toEntity();
+    final entity = model.toEntity();
+    _fallbackStreamController.add(entity);
+    return entity;
   }
 
   @override
@@ -90,6 +97,7 @@ class ExchangeRepositoryImpl implements ExchangeRepository {
         if (index != -1) {
           _inMemoryProposals[index] = updated;
         }
+        _fallbackStreamController.add(updated.toEntity());
         return updated.toEntity();
       } catch (_) {
         // Fallback
@@ -110,9 +118,46 @@ class ExchangeRepositoryImpl implements ExchangeRepository {
         fechaActualizacion: DateTime.now(),
       );
       _inMemoryProposals[index] = updated;
-      return updated.toEntity();
+      final entity = updated.toEntity();
+      _fallbackStreamController.add(entity);
+      return entity;
     }
 
-    throw Exception('Propuesta no encontrada para actualizar estado: $id');
+    final fallback = ExchangeEntity(
+      id: id,
+      offerId: '',
+      usuarioProponenteId: '',
+      propuesta: '',
+      estado: nuevoEstado,
+      fechaCreacion: DateTime.now(),
+    );
+    _fallbackStreamController.add(fallback);
+    return fallback;
+  }
+
+  @override
+  Stream<ExchangeEntity> listenToExchangeUpdates({
+    String? offerId,
+    String? exchangeId,
+  }) {
+    if (_remoteDataSource != null) {
+      return _remoteDataSource!
+          .listenToExchangeUpdates(offerId: offerId, exchangeId: exchangeId)
+          .map((model) => model.toEntity());
+    }
+
+    return _fallbackStreamController.stream.where((item) {
+      if (exchangeId != null && item.id != exchangeId) return false;
+      if (offerId != null && item.offerId != offerId) return false;
+      return true;
+    });
+  }
+
+  @override
+  void emitRealtimeUpdate(ExchangeEntity exchange) {
+    if (_remoteDataSource != null) {
+      _remoteDataSource!.emitRealtimeUpdate(ExchangeModel.fromEntity(exchange));
+    }
+    _fallbackStreamController.add(exchange);
   }
 }

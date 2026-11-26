@@ -28,6 +28,9 @@ class ExchangeEntity {
   bool get esAceptada => estado.toLowerCase() == 'aceptada';
   bool get esRechazada => estado.toLowerCase() == 'rechazada';
 
+  bool get estaAceptada => esAceptada;
+  bool get estaEnPropuesta => esPendiente;
+
   ExchangeEntity copyWith({
     String? id,
     String? offerId,

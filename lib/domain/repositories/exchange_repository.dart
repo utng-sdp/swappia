@@ -16,4 +16,13 @@ abstract class ExchangeRepository {
 
   /// Actualiza el estado de una propuesta (ej. 'aceptada', 'rechazada').
   Future<ExchangeEntity> updateProposalStatus(String id, String nuevoEstado);
+
+  /// Escucha en tiempo real (WebSockets / Supabase Realtime) las actualizaciones de propuestas
+  Stream<ExchangeEntity> listenToExchangeUpdates({
+    String? offerId,
+    String? exchangeId,
+  });
+
+  /// Emite una actualización de prueba o simulación en tiempo real
+  void emitRealtimeUpdate(ExchangeEntity exchange);
 }

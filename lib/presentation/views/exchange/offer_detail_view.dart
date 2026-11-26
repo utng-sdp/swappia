@@ -248,13 +248,204 @@ class _OfferDetailViewState extends State<OfferDetailView> {
     );
   }
 
+  void _showRatingModal(BuildContext context, OfferEntity offer) {
+    double selectedRating = 5.0;
+    final commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (bottomSheetContext) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(24.0),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkSurface : Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 16,
+                      offset: Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.star_rounded,
+                            color: Colors.amber,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Calificar al Vecino',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Tu opinión fortalece la confianza comunitaria',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(bottomSheetContext).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (index) {
+                          final starValue = index + 1.0;
+                          return IconButton(
+                            key: Key('star_${index + 1}'),
+                            iconSize: 36,
+                            onPressed: () {
+                              setModalState(() {
+                                selectedRating = starValue;
+                              });
+                            },
+                            icon: Icon(
+                              starValue <= selectedRating
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: Colors.amber,
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                    Center(
+                      child: Text(
+                        '${selectedRating.toStringAsFixed(1)} de 5 estrellas',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const Key('rating_comment_field'),
+                      controller: commentController,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'Comentario opcional sobre el intercambio...',
+                        filled: true,
+                        fillColor: isDark ? AppColors.darkInputFill : AppColors.lightInputFill,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Consumer<ExchangeViewModel?>(
+                      builder: (ctx, exchangeVM, _) {
+                        return CustomButton(
+                          key: const Key('submit_rating_button'),
+                          text: 'Enviar Calificación',
+                          icon: const Icon(Icons.check_rounded),
+                          isLoading: exchangeVM?.isRatingSubmitting ?? false,
+                          backgroundColor: Colors.amber.shade700,
+                          onPressed: () async {
+                            final authVM = context.read<AuthViewModel?>();
+                            final reviewerId = authVM?.currentUser?.id ?? 'usr-001';
+
+                            bool success = true;
+                            if (exchangeVM != null) {
+                              success = await exchangeVM.rateUser(
+                                targetUserId: offer.usuarioId,
+                                reviewerUserId: reviewerId,
+                                rating: selectedRating,
+                                comment: commentController.text.trim(),
+                              );
+                            }
+
+                            if (bottomSheetContext.mounted) {
+                              Navigator.of(bottomSheetContext).pop();
+                            }
+
+                            if (context.mounted && success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.star, color: Colors.white),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '¡Gracias! Calificación enviada al vecino.',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final offer = _resolveOffer(context);
 
-    if (offer == null) {
+    // Reactividad en vivo: observar ExchangeViewModel
+    final exchangeVM = context.watch<ExchangeViewModel?>();
+    var resolvedOffer = _resolveOffer(context);
+
+    if (resolvedOffer == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Detalle de Publicación')),
         body: const Center(
@@ -264,6 +455,25 @@ class _OfferDetailViewState extends State<OfferDetailView> {
           ),
         ),
       );
+    }
+
+    var offer = resolvedOffer;
+
+    // Si ExchangeViewModel tiene una actualización de estado en vivo para esta oferta
+    final proposal = exchangeVM?.currentProposal;
+    final isProposalAccepted = proposal != null &&
+        proposal.offerId == offer.id &&
+        proposal.estaAceptada;
+
+    if (isProposalAccepted && offer.estado != 'aceptada') {
+      offer = offer.copyWith(estado: 'aceptada');
+      _currentOffer = offer;
+    } else if (proposal != null &&
+        proposal.offerId == offer.id &&
+        proposal.estaEnPropuesta &&
+        offer.estado != 'en_propuesta') {
+      offer = offer.copyWith(estado: 'en_propuesta');
+      _currentOffer = offer;
     }
 
     return Scaffold(
@@ -302,6 +512,49 @@ class _OfferDetailViewState extends State<OfferDetailView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Banner de actualización en vivo cuando la propuesta es aceptada
+                  if (isProposalAccepted || offer.estado == 'aceptada') ...[
+                    Container(
+                      key: const Key('accepted_proposal_banner'),
+                      padding: const EdgeInsets.all(14),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        border: Border.all(color: Colors.green.shade400, width: 1.5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green.shade700, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '¡Propuesta Aceptada en Vivo!',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: Colors.green.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'El vecino ha aceptado tu intercambio. Ya pueden coordinar la entrega y calificar.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // Badges de Modalidad, Categoría y Estado
                   Row(
                     children: [
@@ -421,20 +674,31 @@ class _OfferDetailViewState extends State<OfferDetailView> {
                   _buildNeighborCard(offer.usuarioId, isDark),
                   const SizedBox(height: 28),
 
-                  // Botón principal de acción: "Proponer Intercambio"
-                  CustomButton(
-                    key: const Key('propose_exchange_button'),
-                    text: offer.estaEnPropuesta
-                        ? 'Propuesta en Negociación'
-                        : 'Proponer Intercambio',
-                    icon: Icon(offer.estaEnPropuesta
-                        ? Icons.hourglass_top_rounded
-                        : Icons.handshake_rounded),
-                    backgroundColor: offer.estaEnPropuesta
-                        ? Colors.orange.shade700
-                        : AppColors.secondary,
-                    onPressed: () => _showProposeExchangeModal(context, offer),
-                  ),
+                  // Botón de acción: Si la propuesta está aceptada, mostrar botón para Calificar al Vecino
+                  if (isProposalAccepted || offer.estado == 'aceptada') ...[
+                    CustomButton(
+                      key: const Key('rate_user_button'),
+                      text: 'Calificar al Vecino',
+                      icon: const Icon(Icons.star_rounded),
+                      backgroundColor: Colors.amber.shade700,
+                      onPressed: () => _showRatingModal(context, offer),
+                    ),
+                  ] else ...[
+                    // Botón principal de acción: "Proponer Intercambio"
+                    CustomButton(
+                      key: const Key('propose_exchange_button'),
+                      text: offer.estaEnPropuesta
+                          ? 'Propuesta en Negociación'
+                          : 'Proponer Intercambio',
+                      icon: Icon(offer.estaEnPropuesta
+                          ? Icons.hourglass_top_rounded
+                          : Icons.handshake_rounded),
+                      backgroundColor: offer.estaEnPropuesta
+                          ? Colors.orange.shade700
+                          : AppColors.secondary,
+                      onPressed: () => _showProposeExchangeModal(context, offer),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                 ],
               ),
@@ -573,6 +837,40 @@ class _OfferDetailViewState extends State<OfferDetailView> {
   }
 
   Widget _buildStatusBadge(OfferEntity offer) {
+    // Si la propuesta ha sido aceptada en vivo
+    if (offer.estado == 'aceptada') {
+      return Container(
+        key: const Key('offer_detail_status_badge'),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          border: Border.all(
+            color: Colors.green.shade400,
+          ),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.check_circle_rounded,
+              size: 12,
+              color: Colors.green.shade800,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Propuesta Aceptada',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.green.shade900,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // Si la publicación está en propuesta / pendiente de aceptación
     if (offer.estaEnPropuesta) {
       return Container(
