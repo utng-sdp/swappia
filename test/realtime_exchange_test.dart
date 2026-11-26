@@ -95,13 +95,10 @@ class FakeOfferRepository implements OfferRepository {
   @override
   Future<OfferEntity?> getOfferById(String id) async => null;
 
-  @override
   Future<List<OfferEntity>> getOffersByUser(String userId) async => [];
 
-  @override
   Future<void> createOffer(OfferEntity offer) async {}
 
-  @override
   Future<void> updateOffer(OfferEntity offer) async {}
 
   @override

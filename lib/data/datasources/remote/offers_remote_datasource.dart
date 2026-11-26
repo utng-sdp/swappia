@@ -55,6 +55,13 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
     return _uuidRegex.hasMatch(value.trim());
   }
 
+  bool _isMissingTableError(PostgrestException e) {
+    final msg = e.message.toLowerCase();
+    return e.code == 'PGRST205' ||
+        e.code == '42P01' ||
+        msg.contains('could not find the table');
+  }
+
   SupabaseOffersRemoteDataSource({SupabaseClient? client})
       : _customClient = client;
 
@@ -113,13 +120,46 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
   @override
   Future<OfferModel> createOffer(OfferModel offer) async {
     try {
+      final authUser = _client.auth.currentUser;
+      final session = _client.auth.currentSession;
+      if (authUser == null || session == null) {
+        throw Exception(
+          'Tu sesión en Supabase no está activa. Confirma tu correo electrónico (o desactiva "Confirm email" en Supabase Auth) e inicia sesión nuevamente.',
+        );
+      }
+
       final payload = offer.toJson();
+      payload['usuario_id'] = authUser.id;
+      if (payload['fecha_publicacion'] == null) {
+        payload.remove('fecha_publicacion');
+      }
 
       if (payload['id'] == null ||
           payload['id'].toString().isEmpty ||
           payload['id'].toString().startsWith('temp-') ||
           !_isValidUuid(payload['id'].toString())) {
         payload.remove('id');
+      }
+
+      // Subir imagen local al bucket offer_images antes de insertar la fila
+      final rawPhoto = offer.fotoUrl.trim();
+      final isRemoteOrData = rawPhoto.startsWith('http://') ||
+          rawPhoto.startsWith('https://') ||
+          rawPhoto.startsWith('data:image');
+      if (rawPhoto.isNotEmpty && !isRemoteOrData) {
+        final localFile = File(rawPhoto);
+        if (localFile.existsSync()) {
+          try {
+            final fileName = rawPhoto.split(Platform.pathSeparator).last;
+            final publicUrl = await uploadOfferImage(
+              filePath: rawPhoto,
+              fileName: fileName.isNotEmpty ? fileName : 'oferta.jpg',
+            );
+            payload['foto_url'] = publicUrl;
+          } catch (_) {
+            // Si la subida al bucket falla, conservar la ruta original
+          }
+        }
       }
 
       try {
@@ -130,7 +170,16 @@ class SupabaseOffersRemoteDataSource implements OffersRemoteDataSource {
             .single();
 
         return OfferModel.fromJson(response);
-      } catch (_) {
+      } on PostgrestException catch (e) {
+        if (!_isMissingTableError(e)) {
+          if (e.code == '42501') {
+            throw Exception(
+              'Sin permisos para guardar la oferta (RLS). Verifica que hayas iniciado sesión con tu cuenta confirmada.',
+            );
+          }
+          rethrow;
+        }
+
         final altPayload = Map<String, dynamic>.from(payload);
         if (altPayload.containsKey('activa')) {
           altPayload['activo'] = altPayload.remove('activa');

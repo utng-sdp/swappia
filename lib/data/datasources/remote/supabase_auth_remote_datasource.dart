@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../models/user_model.dart';
@@ -47,7 +49,20 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
       };
     } on AuthException catch (e) {
       throw Exception(_translateAuthError(e.message));
+    } on SocketException {
+      throw Exception(
+        'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración del servidor.',
+      );
+    } on http.ClientException {
+      throw Exception(
+        'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración del servidor.',
+      );
     } catch (e) {
+      if (_isNetworkError(e)) {
+        throw Exception(
+          'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración del servidor.',
+        );
+      }
       if (e is Exception) rethrow;
       throw Exception('Error inesperado al iniciar sesión: $e');
     }
@@ -111,16 +126,33 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
         }
       }
 
-      final token = response.session?.accessToken ??
-          'jwt_supabase_${user.id}_${DateTime.now().millisecondsSinceEpoch}';
+      final session = response.session;
+      if (session == null) {
+        throw Exception(
+          'Cuenta creada, pero Supabase requiere confirmar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja o desactiva "Confirm email" en Supabase Auth.',
+        );
+      }
 
       return {
-        'token': token,
+        'token': session.accessToken,
         'user': profileMap,
       };
     } on AuthException catch (e) {
       throw Exception(_translateAuthError(e.message));
+    } on SocketException {
+      throw Exception(
+        'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración del servidor.',
+      );
+    } on http.ClientException {
+      throw Exception(
+        'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración del servidor.',
+      );
     } catch (e) {
+      if (_isNetworkError(e)) {
+        throw Exception(
+          'No se pudo conectar con Supabase. Verifica tu conexión a internet y la configuración del servidor.',
+        );
+      }
       if (e is Exception) rethrow;
       throw Exception('Error inesperado al registrar usuario: $e');
     }
@@ -225,6 +257,15 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
     };
   }
 
+  bool _isNetworkError(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('failed host lookup') ||
+        msg.contains('socketexception') ||
+        msg.contains('clientexception') ||
+        msg.contains('connection refused') ||
+        msg.contains('network is unreachable');
+  }
+
   /// Traduce los errores comunes de Supabase Auth a mensajes en español orientados al usuario.
   String _translateAuthError(String message) {
     final lower = message.toLowerCase();
@@ -236,6 +277,9 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
         lower.contains('email already in use') ||
         lower.contains('already exists')) {
       return 'Ya existe una cuenta registrada con ese correo electrónico.';
+    }
+    if (lower.contains('email not confirmed')) {
+      return 'Tu correo aún no ha sido confirmado. Revisa tu bandeja de entrada o desactiva "Confirm email" en Supabase.';
     }
     if (lower.contains('password should be at least')) {
       return 'La contraseña debe tener al menos 6 caracteres.';

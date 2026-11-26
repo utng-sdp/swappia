@@ -374,8 +374,12 @@ class OfferCard extends StatelessWidget {
 
   Widget _buildOfferThumbnail(String path) {
     if (path.isEmpty) {
-      return const Center(
-        child: Icon(Icons.swap_horiz, color: Colors.teal, size: 30),
+      return Center(
+        child: Icon(
+          _esServicio ? Icons.handyman_rounded : Icons.inventory_2_rounded,
+          color: Colors.teal,
+          size: 30,
+        ),
       );
     }
 

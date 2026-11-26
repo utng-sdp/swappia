@@ -1,4 +1,4 @@
-﻿import '../../domain/models/auth_session_entity.dart';
+import '../../domain/models/auth_session_entity.dart';
 import '../../domain/models/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/local/auth_local_datasource.dart';
@@ -76,7 +76,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> persistToken(String token) => _localDataSource.saveToken(token);
 
   @override
-  Future<void> clearPersistedSession() => _localDataSource.clearAll();
+  Future<void> clearPersistedSession() async {
+    try {
+      await _remoteDataSource.signOut();
+    } catch (_) {}
+    await _localDataSource.clearAll();
+  }
 
   @override
   Future<UserEntity?> getCurrentUser() async {

@@ -15,6 +15,8 @@ class PublishOfferUseCase {
     'jpeg',
     'png',
     'webp',
+    'heic',
+    'heif',
   ];
 
   /// Valida si la ruta o URL proporcionada corresponde a un formato de foto permitido.
